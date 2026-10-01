@@ -52,9 +52,10 @@ class AIUsageRequest(BaseModel):
     compute_cost: float = Field(default=0, ge=0)
     data_cost: float = Field(default=0, ge=0)
     request_id: str | None = None
+    allow_fallback: bool = False
 
     def usage_input(self) -> AIUsageInput:
-        return AIUsageInput(**self.model_dump())
+        return AIUsageInput(**self.model_dump(exclude={"allow_fallback"}))
 
 
 class AIBudgetRequest(BaseModel):
@@ -197,7 +198,7 @@ async def ai_preflight(request: AIUsageRequest, principal: Principal = Depends(c
     if principal.tenant_id != request.tenant_id:
         raise HTTPException(status_code=403, detail="You cannot estimate usage for another tenant.")
     try:
-        result = ai_cost_service.preflight(request.usage_input())
+        result = ai_cost_service.preflight(request.usage_input(), allow_fallback=request.allow_fallback)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     if result["decision"] != "ALLOW":

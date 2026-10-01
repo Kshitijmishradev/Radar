@@ -29,6 +29,13 @@ CATALOG: dict[tuple[str, str], ModelPrice] = {
     ("anthropic", "claude-sonnet"): ModelPrice("anthropic", "claude-sonnet", 3.00, 15.00, 0.30),
 }
 
+# These routes are intentionally explicit: a production team approves the quality
+# tiers it will permit for each workload before a guardrail can use them.
+FALLBACKS: dict[tuple[str, str], tuple[str, str]] = {
+    ("openai", "gpt-4o"): ("openai", "gpt-4o-mini"),
+    ("anthropic", "claude-sonnet"): ("anthropic", "claude-haiku"),
+}
+
 
 @dataclass(frozen=True)
 class AIUsageInput:
@@ -139,8 +146,7 @@ class AICostService:
         ).fetchone()
         return float(row["total"])
 
-    def preflight(self, usage: AIUsageInput) -> dict[str, object]:
-        estimate = self.estimate(usage)
+    def _evaluate_budget(self, usage: AIUsageInput, estimate: dict[str, float]) -> dict[str, object]:
         spent = self._month_spend(usage.tenant_id, usage.app)
         projected = round(spent + estimate["total_cost"], 6)
         budget = self.get_budget(usage.tenant_id, usage.app)
@@ -164,6 +170,49 @@ class AICostService:
             "decision": decision, "permitted": permitted, "reason": reason, "estimate": estimate,
             "month_to_date_spend": round(spent, 6), "projected_month_spend": projected, "budget": budget,
         }
+
+    @staticmethod
+    def _fallback_usage(usage: AIUsageInput, provider: str, model: str) -> AIUsageInput:
+        return AIUsageInput(
+            tenant_id=usage.tenant_id, app=usage.app, customer=usage.customer, end_user=usage.end_user,
+            provider=provider, model=model, input_tokens=usage.input_tokens, output_tokens=usage.output_tokens,
+            cached_input_tokens=usage.cached_input_tokens, compute_cost=usage.compute_cost, data_cost=usage.data_cost,
+            request_id=usage.request_id,
+        )
+
+    def preflight(self, usage: AIUsageInput, allow_fallback: bool = False) -> dict[str, object]:
+        """Evaluate the requested model, optionally routing to a pre-approved cheaper tier.
+
+        This returns a decision only; the calling SDK remains responsible for selecting
+        the provider/model and recording actual provider-reported usage afterward.
+        """
+        result = self._evaluate_budget(usage, self.estimate(usage))
+        fallback_key = (usage.provider.lower(), usage.model.lower())
+        fallback_target = FALLBACKS.get(fallback_key)
+        if result["decision"] == "ALLOW" or not fallback_target:
+            return result
+
+        fallback_usage = self._fallback_usage(usage, *fallback_target)
+        fallback_result = self._evaluate_budget(fallback_usage, self.estimate(fallback_usage))
+        fallback = {
+            "provider": fallback_target[0], "model": fallback_target[1],
+            "permitted": fallback_result["permitted"], "decision": fallback_result["decision"],
+            "estimate": fallback_result["estimate"], "projected_month_spend": fallback_result["projected_month_spend"],
+        }
+        result["recommended_fallback"] = fallback
+        if allow_fallback and fallback_result["permitted"]:
+            fallback_result["routed_to_fallback"] = True
+            fallback_result["effective_provider"] = fallback_target[0]
+            fallback_result["effective_model"] = fallback_target[1]
+            fallback_result["reason"] = (
+                f"Original {usage.provider}/{usage.model} request did not fit the guardrail; "
+                f"routed to approved fallback {fallback_target[0]}/{fallback_target[1]}. "
+                f"{fallback_result['reason']}"
+            )
+            fallback_result["requested_model"] = f"{usage.provider}/{usage.model}"
+            fallback_result["recommended_fallback"] = fallback
+            return fallback_result
+        return result
 
     def record_usage(self, usage: AIUsageInput) -> dict[str, object]:
         estimate = self.estimate(usage)

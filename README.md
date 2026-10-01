@@ -99,6 +99,11 @@ It demonstrates the product direction beyond cloud resources: request-level mode
 costing, attribution to an app/customer/end user, app budgets, and a deterministic
 `ALLOW` / `WARN` / `BLOCK` preflight guardrail.
 
+When a request does not fit its budget, the demo can also offer an explicitly
+approved lower-cost route (`GPT-4o → GPT-4o mini` or `Claude Sonnet → Claude
+Haiku`). The caller must opt into that route; Radar AI never changes model
+quality silently.
+
 ```bash
 .venv/bin/python -m scripts.seed_ai_demo
 make run

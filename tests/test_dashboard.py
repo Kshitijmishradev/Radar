@@ -17,3 +17,4 @@ class DashboardAssetTests(unittest.TestCase):
         self.assertIn('/v1/actions/${actionId}/${command}', script)
         self.assertIn('Budget gate simulator', ai_document)
         self.assertIn('/v1/ai/preflight', ai_script)
+        self.assertIn('Use ${escapeHtml(fallback.provider)}', ai_script)
