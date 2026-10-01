@@ -1,0 +1,238 @@
+"""HTTP interface for the deterministic remediation workflow."""
+
+from __future__ import annotations
+
+import os
+import asyncio
+import json
+from contextlib import asynccontextmanager, suppress
+from pathlib import Path
+from typing import AsyncIterator
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
+from app.domain import AnomalyInput, RemediationService, Repository, WorkflowError
+from app.events import EventBroker
+from app.jobs import DurableJobQueue, RemediationWorker
+from app.security import Principal, Role, SESSION_COOKIE, current_principal, require_role, signer
+
+
+class AnomalyRequest(BaseModel):
+    tenant_id: str = Field(min_length=1, examples=["acme-health"])
+    resource_id: str = Field(min_length=1, examples=["i-demo-001"])
+    resource_type: str = Field(min_length=1, examples=["ec2"])
+    environment: str = Field(min_length=1, examples=["nonprod"])
+    owner: str | None = Field(default=None, examples=["data-platform"])
+    auto_stop: bool
+    idle_hours: float = Field(ge=0)
+    current_daily_cost: float = Field(ge=0)
+    expected_daily_cost: float = Field(ge=0)
+
+
+class DemoLoginRequest(BaseModel):
+    tenant_id: str = Field(min_length=1, examples=["acme-health"])
+    user_id: str = Field(default="demo-user", min_length=1)
+    role: Role = Role.ADMIN
+
+
+database_path = os.getenv("DATABASE_PATH", str(Path("data") / "radar.db"))
+inline_worker_enabled = os.getenv("RUN_LOCAL_WORKER", "true").lower() in {"1", "true", "yes"}
+service = RemediationService(Repository(database_path))
+event_broker = EventBroker()
+job_queue = DurableJobQueue(service.repository)
+worker = RemediationWorker(service.repository, service)
+
+
+async def run_local_worker_loop() -> None:
+    """Development worker. Deployments run this role in a separate process/service."""
+    while True:
+        outcome = worker.process_next()
+        if outcome and outcome.action:
+            await publish_action_event("action.succeeded", outcome.action)
+        elif outcome and outcome.error:
+            await event_broker.publish("job.failed", str(outcome.job["tenant_id"]), {
+                "job": outcome.job, "error": outcome.error,
+            })
+        await asyncio.sleep(0.25)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    task = asyncio.create_task(run_local_worker_loop()) if inline_worker_enabled else None
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+
+app = FastAPI(title="Radar Remediation Engine", version="0.2.0", lifespan=lifespan)
+dashboard_dir = Path(__file__).parent / "dashboard"
+app.mount("/assets", StaticFiles(directory=dashboard_dir), name="assets")
+
+
+def actor_from_header(x_actor: str | None) -> str:
+    return x_actor or "demo-user"
+
+
+def scoped_action(action_id: str, principal: Principal) -> dict[str, object]:
+    action = service.repository.get_action(action_id, principal.tenant_id)
+    if not action:
+        raise HTTPException(status_code=404, detail="Action not found.")
+    return action
+
+
+def workflow_error(error: WorkflowError) -> HTTPException:
+    message = str(error)
+    code = status.HTTP_404_NOT_FOUND if message == "Action not found." else status.HTTP_409_CONFLICT
+    return HTTPException(status_code=code, detail=message)
+
+
+async def publish_action_event(event_type: str, action: dict[str, object]) -> None:
+    await event_broker.publish(event_type, str(action["tenant_id"]), {"action": action})
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok", "adapter": "simulated"}
+
+
+@app.get("/", include_in_schema=False)
+def dashboard() -> FileResponse:
+    return FileResponse(dashboard_dir / "index.html")
+
+
+@app.post("/v1/auth/demo-login")
+def demo_login(request: DemoLoginRequest, response: Response) -> dict[str, object]:
+    if os.getenv("ALLOW_DEMO_AUTH", "true").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(status_code=404, detail="Demo login is disabled.")
+    principal = Principal(request.user_id, request.tenant_id, request.role)
+    response.set_cookie(
+        SESSION_COOKIE, signer.issue(principal), httponly=True, samesite="lax", secure=False, max_age=28_800,
+    )
+    return {"user_id": principal.user_id, "tenant_id": principal.tenant_id, "role": principal.role.value}
+
+
+@app.post("/v1/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(response: Response) -> Response:
+    response.delete_cookie(SESSION_COOKIE)
+    return response
+
+
+@app.get("/v1/session")
+def session(principal: Principal = Depends(current_principal)) -> dict[str, str]:
+    return {"user_id": principal.user_id, "tenant_id": principal.tenant_id, "role": principal.role.value}
+
+
+@app.post("/v1/anomalies", status_code=status.HTTP_201_CREATED)
+async def ingest_anomaly(request: AnomalyRequest, principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    require_role(principal, Role.OPERATOR)
+    if principal.tenant_id != request.tenant_id:
+        raise HTTPException(status_code=403, detail="You cannot submit anomalies for another tenant.")
+    result = service.ingest_anomaly(AnomalyInput(**request.model_dump()))
+    event_type = "action.approval_required" if result.get("action_id") else "anomaly.ineligible"
+    await event_broker.publish(event_type, request.tenant_id, result)
+    return result
+
+
+@app.get("/v1/actions")
+def list_actions(principal: Principal = Depends(current_principal)) -> list[dict[str, object]]:
+    return service.repository.list_actions(principal.tenant_id)
+
+
+@app.get("/v1/actions/{action_id}")
+def get_action(action_id: str, principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    return scoped_action(action_id, principal)
+
+
+@app.post("/v1/actions/{action_id}/approve")
+async def approve(action_id: str, x_actor: str | None = Header(default=None), principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    try:
+        require_role(principal, Role.APPROVER)
+        scoped_action(action_id, principal)
+        action = service.approve(action_id, x_actor or principal.user_id)
+        job = job_queue.enqueue_execution(action)
+        await publish_action_event("action.approved", action)
+        await event_broker.publish("job.queued", str(action["tenant_id"]), {"job": job})
+        return {"action": action, "job": job}
+    except WorkflowError as error:
+        raise workflow_error(error) from error
+
+
+@app.post("/v1/actions/{action_id}/reject")
+async def reject(action_id: str, x_actor: str | None = Header(default=None), principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    try:
+        require_role(principal, Role.APPROVER)
+        scoped_action(action_id, principal)
+        action = service.reject(action_id, x_actor or principal.user_id)
+        await publish_action_event("action.rejected", action)
+        return action
+    except WorkflowError as error:
+        raise workflow_error(error) from error
+
+
+@app.post("/v1/actions/{action_id}/execute")
+async def execute(action_id: str, x_actor: str | None = Header(default=None), principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    try:
+        require_role(principal, Role.OPERATOR)
+        action = scoped_action(action_id, principal)
+        if action["status"] != "APPROVED":
+            raise WorkflowError("Only approved actions can be queued for execution.")
+        job = job_queue.enqueue_execution(action)
+        await event_broker.publish("job.queued", str(action["tenant_id"]), {"job": job})
+        return {"action": action, "job": job}
+    except WorkflowError as error:
+        raise workflow_error(error) from error
+
+
+@app.post("/v1/actions/{action_id}/rollback")
+async def rollback(action_id: str, x_actor: str | None = Header(default=None), principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    try:
+        require_role(principal, Role.OPERATOR)
+        scoped_action(action_id, principal)
+        action = service.rollback(action_id, x_actor or principal.user_id)
+        await publish_action_event("action.rolled_back", action)
+        return action
+    except WorkflowError as error:
+        raise workflow_error(error) from error
+
+
+@app.get("/v1/actions/{action_id}/audit")
+def audit(action_id: str, principal: Principal = Depends(current_principal)) -> list[dict[str, object]]:
+    scoped_action(action_id, principal)
+    return service.repository.get_audit_events(action_id)
+
+
+@app.get("/v1/jobs")
+def list_jobs(principal: Principal = Depends(current_principal)) -> list[dict[str, object]]:
+    return service.repository.list_jobs(principal.tenant_id)
+
+
+async def sse_stream(request: Request, tenant_id: str | None) -> AsyncIterator[str]:
+    subscription_id, queue = await event_broker.subscribe(tenant_id)
+    try:
+        connected = {"subscription_id": subscription_id, "tenant_id": tenant_id}
+        yield f"event: connected\ndata: {json.dumps(connected)}\n\n"
+        while not await request.is_disconnected():
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=15)
+                yield f"id: {event.id}\nevent: {event.event_type}\ndata: {json.dumps(event.as_dict())}\n\n"
+            except TimeoutError:
+                yield ": keepalive\n\n"
+    finally:
+        await event_broker.unsubscribe(subscription_id)
+
+
+@app.get("/v1/events")
+async def events(request: Request, principal: Principal = Depends(current_principal)) -> StreamingResponse:
+    """Stream dashboard updates for the authenticated tenant only."""
+    return StreamingResponse(
+        sse_stream(request, principal.tenant_id),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )

@@ -1,0 +1,33 @@
+services:
+  api:
+    build: .
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_PATH: /data/radar.db
+      RUN_LOCAL_WORKER: "false"
+      APP_AUTH_SECRET: ${APP_AUTH_SECRET:-local-development-only-change-me}
+      ALLOW_DEMO_AUTH: "true"
+    volumes:
+      - radar_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  worker:
+    build: .
+    command: ["python", "-m", "app.worker"]
+    environment:
+      DATABASE_PATH: /data/radar.db
+      APP_AUTH_SECRET: ${APP_AUTH_SECRET:-local-development-only-change-me}
+    volumes:
+      - radar_data:/data
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  radar_data:

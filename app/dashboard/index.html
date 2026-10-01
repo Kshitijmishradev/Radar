@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Radar Remediation Engine dashboard" />
+    <title>Radar | Cost Control</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <script defer src="/assets/app.js"></script>
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">R</span>
+          <div>
+            <p class="eyebrow">Cost Control</p>
+            <h1>Radar Remediation Engine</h1>
+          </div>
+        </div>
+        <div class="connection"><span class="connection-dot"></span><span id="connection-status">Loading data</span></div>
+      </header>
+
+      <section class="auth-gate" id="auth-gate" aria-labelledby="auth-heading">
+        <div>
+          <p class="eyebrow">Local development access</p>
+          <h2 id="auth-heading">Choose a demo tenant and role.</h2>
+          <p>This local-only sign-in demonstrates tenant boundaries and role-based actions.</p>
+        </div>
+        <form id="login-form" class="login-form">
+          <label>Tenant
+            <select id="tenant-input"><option value="acme-health">Acme Health</option><option value="queue-demo">Queue Demo</option></select>
+          </label>
+          <label>Role
+            <select id="role-input"><option value="admin">Admin</option><option value="approver">Approver</option><option value="operator">Operator</option><option value="viewer">Viewer</option></select>
+          </label>
+          <button class="button button-primary" type="submit">Enter dashboard</button>
+        </form>
+      </section>
+
+      <div id="dashboard-content" hidden>
+      <section class="intro">
+        <div>
+          <p class="eyebrow">Operations overview</p>
+          <h2>Make cost actions safe, visible, and reversible.</h2>
+        </div>
+        <button class="button button-secondary" id="refresh-button">Refresh</button>
+      </section>
+
+      <section class="metrics" aria-label="Cost remediation metrics">
+        <article class="metric-card">
+          <p>Pending approvals</p>
+          <strong id="pending-count">—</strong>
+          <span>Require a human decision</span>
+        </article>
+        <article class="metric-card">
+          <p>Completed actions</p>
+          <strong id="completed-count">—</strong>
+          <span>Simulated cloud changes</span>
+        </article>
+        <article class="metric-card metric-card-highlight">
+          <p>Projected monthly savings</p>
+          <strong id="savings-total">—</strong>
+          <span>Across eligible actions</span>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <section class="panel actions-panel" aria-labelledby="actions-heading">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Workflow queue</p>
+              <h2 id="actions-heading">Remediation actions</h2>
+            </div>
+            <span class="count-pill" id="action-total">0 actions</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Resource</th>
+                  <th>Tenant</th>
+                  <th>Status</th>
+                  <th>Projected savings</th>
+                  <th><span class="visually-hidden">View action</span></th>
+                </tr>
+              </thead>
+              <tbody id="actions-table">
+                <tr><td colspan="5" class="empty-state">Loading actions…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside class="panel detail-panel" aria-live="polite">
+          <div id="action-detail" class="detail-empty">
+            <p class="eyebrow">Action detail</p>
+            <h2>Select an action</h2>
+            <p>Inspect policy evidence, take a permitted action, and review its audit history.</p>
+          </div>
+        </aside>
+      </section>
+      </div>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

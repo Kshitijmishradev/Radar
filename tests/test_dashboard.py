@@ -1,0 +1,12 @@
+import unittest
+from pathlib import Path
+
+
+class DashboardAssetTests(unittest.TestCase):
+    def test_dashboard_has_the_workflow_controls(self) -> None:
+        root = Path(__file__).parents[1] / "app" / "dashboard"
+        document = (root / "index.html").read_text()
+        script = (root / "app.js").read_text()
+        self.assertIn('id="actions-table"', document)
+        self.assertIn('PENDING_APPROVAL', script)
+        self.assertIn('/v1/actions/${actionId}/${command}', script)
