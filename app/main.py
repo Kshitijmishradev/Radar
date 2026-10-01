@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from app.ai_costs import AICostService, AIUsageInput
 from app.domain import AnomalyInput, RemediationService, Repository, WorkflowError
 from app.events import EventBroker
 from app.jobs import DurableJobQueue, RemediationWorker
@@ -38,9 +39,34 @@ class DemoLoginRequest(BaseModel):
     role: Role = Role.ADMIN
 
 
+class AIUsageRequest(BaseModel):
+    tenant_id: str = Field(min_length=1)
+    app: str = Field(min_length=1, examples=["support-assistant"])
+    customer: str = Field(min_length=1, examples=["acme-corp"])
+    end_user: str = Field(min_length=1, examples=["jane@acme.com"])
+    provider: str = Field(min_length=1, examples=["openai"])
+    model: str = Field(min_length=1, examples=["gpt-4o-mini"])
+    input_tokens: int = Field(ge=0, examples=[1200])
+    output_tokens: int = Field(ge=0, examples=[450])
+    cached_input_tokens: int = Field(default=0, ge=0)
+    compute_cost: float = Field(default=0, ge=0)
+    data_cost: float = Field(default=0, ge=0)
+    request_id: str | None = None
+
+    def usage_input(self) -> AIUsageInput:
+        return AIUsageInput(**self.model_dump())
+
+
+class AIBudgetRequest(BaseModel):
+    app: str = Field(min_length=1)
+    monthly_limit: float = Field(gt=0)
+    warning_percent: int = Field(default=80, ge=1, le=100)
+
+
 database_path = os.getenv("DATABASE_PATH", str(Path("data") / "radar.db"))
 inline_worker_enabled = os.getenv("RUN_LOCAL_WORKER", "true").lower() in {"1", "true", "yes"}
 service = RemediationService(Repository(database_path))
+ai_cost_service = AICostService(service.repository)
 event_broker = EventBroker()
 job_queue = DurableJobQueue(service.repository)
 worker = RemediationWorker(service.repository, service)
@@ -107,6 +133,11 @@ def dashboard() -> FileResponse:
     return FileResponse(dashboard_dir / "index.html")
 
 
+@app.get("/ai", include_in_schema=False)
+def ai_dashboard() -> FileResponse:
+    return FileResponse(dashboard_dir / "ai.html")
+
+
 @app.post("/v1/auth/demo-login")
 def demo_login(request: DemoLoginRequest, response: Response) -> dict[str, object]:
     if os.getenv("ALLOW_DEMO_AUTH", "true").lower() not in {"1", "true", "yes"}:
@@ -148,6 +179,51 @@ def list_actions(principal: Principal = Depends(current_principal)) -> list[dict
 @app.get("/v1/anomalies")
 def list_anomalies(principal: Principal = Depends(current_principal)) -> list[dict[str, object]]:
     return service.repository.list_anomalies(principal.tenant_id)
+
+
+@app.get("/v1/ai/overview")
+def ai_overview(principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    return ai_cost_service.overview(principal.tenant_id)
+
+
+@app.get("/v1/ai/usage")
+def list_ai_usage(principal: Principal = Depends(current_principal)) -> list[dict[str, object]]:
+    return ai_cost_service.list_usage(principal.tenant_id)
+
+
+@app.post("/v1/ai/preflight")
+async def ai_preflight(request: AIUsageRequest, principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    require_role(principal, Role.OPERATOR)
+    if principal.tenant_id != request.tenant_id:
+        raise HTTPException(status_code=403, detail="You cannot estimate usage for another tenant.")
+    try:
+        result = ai_cost_service.preflight(request.usage_input())
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    if result["decision"] != "ALLOW":
+        await event_broker.publish(f"ai.preflight_{str(result['decision']).lower()}", request.tenant_id, result)
+    return result
+
+
+@app.post("/v1/ai/usage", status_code=status.HTTP_201_CREATED)
+async def record_ai_usage(request: AIUsageRequest, principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    require_role(principal, Role.OPERATOR)
+    if principal.tenant_id != request.tenant_id:
+        raise HTTPException(status_code=403, detail="You cannot record usage for another tenant.")
+    try:
+        event = ai_cost_service.record_usage(request.usage_input())
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    await event_broker.publish("ai.usage_recorded", request.tenant_id, {"usage": event})
+    return event
+
+
+@app.post("/v1/ai/budgets")
+async def set_ai_budget(request: AIBudgetRequest, principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    require_role(principal, Role.ADMIN)
+    budget = ai_cost_service.set_budget(principal.tenant_id, request.app, request.monthly_limit, request.warning_percent)
+    await event_broker.publish("ai.budget_updated", principal.tenant_id, {"budget": budget})
+    return budget
 
 
 @app.get("/v1/actions/{action_id}")

@@ -92,6 +92,22 @@ dashboard shows the complete anomaly history and the reason behind every policy
 verdict. It is safe to run the seed command again; it resets only the
 `demo-video` tenant.
 
+## Application AI cost control
+
+Radar AI is a second, application-AI control surface at `http://127.0.0.1:8000/ai`.
+It demonstrates the product direction beyond cloud resources: request-level model
+costing, attribution to an app/customer/end user, app budgets, and a deterministic
+`ALLOW` / `WARN` / `BLOCK` preflight guardrail.
+
+```bash
+.venv/bin/python -m scripts.seed_ai_demo
+make run
+```
+
+The seed creates a `demo-video` application-AI dataset. It uses a local,
+versioned demonstration price catalog; it does not call an AI provider or claim
+to use live provider prices.
+
 ## Test
 
 ```bash

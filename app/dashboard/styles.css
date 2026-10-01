@@ -39,6 +39,8 @@ h1, h2, h3, p { margin: 0; }
 h1 { font-size: 15px; font-weight: 750; letter-spacing: -.045em; }
 .brand-subtitle { color: var(--muted); font-size: 11px; letter-spacing: -.01em; }
 .topbar-actions { gap: 18px; }
+.product-link { color: #6d6966; font-size: 11px; font-weight: 750; text-decoration: none; }
+.product-link:hover { color: var(--coral-deep); }
 .connection { gap: 7px; color: var(--muted); font-size: 11px; }
 .connection-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #e7aa59; box-shadow: 0 0 0 3px rgba(231, 170, 89, .12); }
 .connection-dot.connected { background: #35a47b; box-shadow: 0 0 0 3px rgba(53, 164, 123, .12); }

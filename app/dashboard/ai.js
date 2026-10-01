@@ -1,0 +1,39 @@
+const state = { principal: null, overview: null, usage: [], source: null };
+const elements = {
+  authGate: document.querySelector('#auth-gate'), dashboard: document.querySelector('#dashboard-content'),
+  form: document.querySelector('#login-form'), tenant: document.querySelector('#tenant-input'), role: document.querySelector('#role-input'),
+  totalCost: document.querySelector('#total-cost'), requestCount: document.querySelector('#request-count'),
+  costToServe: document.querySelector('#cost-to-serve'), costBreakdown: document.querySelector('#cost-breakdown'),
+  budgetHealth: document.querySelector('#budget-health'), budgetCaption: document.querySelector('#budget-caption'),
+  modelList: document.querySelector('#model-list'), budgetList: document.querySelector('#budget-list'), customerList: document.querySelector('#customer-list'),
+  usageTable: document.querySelector('#usage-table'), usageCount: document.querySelector('#usage-count'), preflight: document.querySelector('#run-preflight'),
+  preflightResult: document.querySelector('#preflight-result'), status: document.querySelector('#connection-status'), toast: document.querySelector('#toast'),
+};
+const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value || 0);
+const escapeHtml = value => { const node = document.createElement('span'); node.textContent = value ?? ''; return node.innerHTML; };
+
+function toast(message) { elements.toast.textContent = message; elements.toast.classList.add('visible'); window.setTimeout(() => elements.toast.classList.remove('visible'), 2800); }
+async function request(path, options = {}) { const response = await fetch(path, { ...options, headers: { 'content-type': 'application/json', ...(options.headers || {}) } }); if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.detail || 'Request failed.'); } return response.status === 204 ? null : response.json(); }
+function profile() { const tenant = state.principal.tenant_id.replaceAll('-', ' '); document.querySelector('#profile-tenant').textContent = tenant; document.querySelector('#profile-role').textContent = `${state.principal.role} access`; document.querySelector('.profile-avatar').textContent = tenant.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase(); }
+
+function renderList(target, items, label) { if (!items.length) { target.innerHTML = `<p class="ai-empty">No ${label} recorded yet.</p>`; return; } const max = Math.max(...items.map(item => Number(item.cost)), 1); target.innerHTML = items.slice(0, 4).map(item => `<div class="rank-row"><div><strong>${escapeHtml(item.name)}</strong><span><i style="width:${Math.max(5, Number(item.cost) / max * 100)}%"></i></span></div><b>${money(item.cost)}</b></div>`).join(''); }
+function render() {
+  const overview = state.overview;
+  elements.totalCost.textContent = money(overview.total_cost);
+  elements.requestCount.textContent = `${overview.request_count} attributed request${overview.request_count === 1 ? '' : 's'}`;
+  elements.costToServe.textContent = money(overview.total_cost);
+  elements.costBreakdown.textContent = `${money(overview.inference_cost)} inference · ${money(overview.compute_cost)} compute · ${money(overview.data_cost)} data`;
+  const atRisk = overview.budgets.filter(item => Number(item.percent_used) >= Number(item.warning_percent));
+  elements.budgetHealth.textContent = atRisk.length ? `${atRisk.length} alert` : 'Healthy';
+  elements.budgetCaption.textContent = atRisk.length ? 'One or more application budgets need attention' : `${overview.budgets.length} app guardrail${overview.budgets.length === 1 ? '' : 's'} within policy`;
+  renderList(elements.modelList, overview.by_model, 'model costs'); renderList(elements.customerList, overview.by_customer, 'customer costs');
+  elements.budgetList.innerHTML = overview.budgets.length ? overview.budgets.map(budget => `<div class="budget-row"><div><strong>${escapeHtml(budget.app)}</strong><span>${money(budget.month_to_date_spend)} of ${money(budget.monthly_limit)}</span></div><b>${budget.percent_used}%</b><i><em style="width:${Math.min(100, Number(budget.percent_used))}%"></em></i></div>`).join('') : '<p class="ai-empty">No app budgets configured.</p>';
+  elements.usageCount.textContent = `${state.usage.length} request${state.usage.length === 1 ? '' : 's'}`;
+  elements.usageTable.innerHTML = state.usage.length ? state.usage.slice(0, 7).map(item => `<tr><td><span class="resource-name">${escapeHtml(item.app)}</span><span class="resource-type">${escapeHtml(item.customer_name)} · ${escapeHtml(item.end_user)}</span></td><td>${escapeHtml(item.provider)} / ${escapeHtml(item.model)}</td><td>${Number(item.input_tokens + item.output_tokens).toLocaleString()}</td><td class="savings">${money(item.total_cost)}</td></tr>`).join('') : '<tr><td colspan="4" class="empty-state">No attributed AI requests yet.</td></tr>';
+}
+async function load() { if (!state.principal) return; try { [state.overview, state.usage] = await Promise.all([request('/v1/ai/overview'), request('/v1/ai/usage')]); render(); elements.status.textContent = state.source?.readyState === EventSource.OPEN ? 'Live updates connected' : 'Connected to local API'; } catch (error) { elements.status.textContent = 'API unavailable'; toast(error.message); } }
+async function session() { try { state.principal = await request('/v1/session'); elements.authGate.hidden = true; elements.dashboard.hidden = false; profile(); await load(); connect(); } catch (_) { elements.authGate.hidden = false; } }
+async function login(event) { event.preventDefault(); const response = await fetch('/v1/auth/demo-login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tenant_id: elements.tenant.value, role: elements.role.value }) }); if (!response.ok) return toast('Demo sign-in is unavailable.'); toast('Demo session started.'); await session(); }
+function connect() { if (state.source || !window.EventSource) return; state.source = new EventSource('/v1/events'); state.source.addEventListener('connected', () => { elements.status.textContent = 'Live updates connected'; }); ['ai.usage_recorded', 'ai.budget_updated', 'ai.preflight_warn', 'ai.preflight_block'].forEach(type => state.source.addEventListener(type, async () => { await load(); })); }
+async function preflight() { if (!state.principal) return; elements.preflight.disabled = true; try { const result = await request('/v1/ai/preflight', { method: 'POST', body: JSON.stringify({ tenant_id: state.principal.tenant_id, app: 'support-assistant', customer: 'acme-corp', end_user: 'jane@acme.com', provider: 'openai', model: 'gpt-4o', input_tokens: 900000, output_tokens: 140000, cached_input_tokens: 250000, compute_cost: 1.20, data_cost: 0.35, request_id: `sim-${Date.now()}` }) }); elements.preflightResult.className = `preflight-result decision-${result.decision.toLowerCase()}`; elements.preflightResult.innerHTML = `<strong>${result.decision} · ${result.permitted ? 'request may proceed' : 'request blocked'}</strong><span>${escapeHtml(result.reason)}</span><small>Estimated request cost ${money(result.estimate.total_cost)} · projected app spend ${money(result.projected_month_spend)}</small>`; } catch (error) { toast(error.message); } finally { elements.preflight.disabled = false; } }
+elements.form.addEventListener('submit', login); elements.preflight.addEventListener('click', preflight); session();

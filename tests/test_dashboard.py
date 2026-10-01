@@ -7,9 +7,13 @@ class DashboardAssetTests(unittest.TestCase):
         root = Path(__file__).parents[1] / "app" / "dashboard"
         document = (root / "index.html").read_text()
         script = (root / "app.js").read_text()
+        ai_document = (root / "ai.html").read_text()
+        ai_script = (root / "ai.js").read_text()
         self.assertIn('id="actions-table"', document)
         self.assertIn('id="coverage-ring"', document)
         self.assertIn('id="daily-spend-total"', document)
         self.assertIn('PENDING_APPROVAL', script)
         self.assertIn('renderScanPattern', script)
         self.assertIn('/v1/actions/${actionId}/${command}', script)
+        self.assertIn('Budget gate simulator', ai_document)
+        self.assertIn('/v1/ai/preflight', ai_script)

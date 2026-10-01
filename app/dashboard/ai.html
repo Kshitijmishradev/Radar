@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Radar application AI cost control dashboard" />
+    <title>Radar AI | Cost Control</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/ai.css" />
+    <script defer src="/assets/ai.js"></script>
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+    <main class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <a class="nav-toggle" href="/" aria-label="Open cloud cost control">⌁</a>
+          <span class="brand-mark ai-mark" aria-hidden="true">AI</span>
+          <div><h1>Radar AI</h1><p class="brand-subtitle">Application cost control</p></div>
+        </div>
+        <div class="topbar-actions">
+          <a class="product-link" href="/">Cloud control</a>
+          <div class="connection"><span class="connection-dot"></span><span id="connection-status">Loading data</span></div>
+          <div class="profile-chip"><span class="profile-avatar">AI</span><span><strong id="profile-tenant">FinOps member</strong><small id="profile-role">Local demo</small></span></div>
+        </div>
+      </header>
+
+      <section class="auth-gate" id="auth-gate" aria-labelledby="auth-heading">
+        <div>
+          <p class="eyebrow">Local development access</p>
+          <h2 id="auth-heading">Choose a demo tenant and role.</h2>
+          <p>This page demonstrates application-AI cost attribution and preflight budget controls.</p>
+        </div>
+        <form id="login-form" class="login-form">
+          <label>Tenant<select id="tenant-input"><option value="demo-video">Video Demo</option><option value="acme-health">Acme Health</option><option value="queue-demo">Queue Demo</option></select></label>
+          <label>Role<select id="role-input"><option value="admin">Admin</option><option value="operator">Operator</option><option value="approver">Approver</option><option value="viewer">Viewer</option></select></label>
+          <button class="button button-primary" type="submit">Enter dashboard</button>
+        </form>
+      </section>
+
+      <div id="dashboard-content" hidden>
+        <section class="ai-hero">
+          <div><p class="eyebrow">Application AI economics</p><h2>Know what every model request costs.</h2><p>Attribute tokens, compute and data to the app, customer and end user—then apply the budget guardrail before a request leaves your system.</p></div>
+          <div class="ai-hero-pill"><span class="connection-dot connected"></span> Request-time policy online</div>
+        </section>
+
+        <section class="ai-metrics" aria-label="AI spend metrics">
+          <article class="metric-card"><div class="card-icon card-icon-dark">⌁</div><p>Month-to-date AI cost</p><strong id="total-cost">—</strong><span id="request-count">Loading requests</span></article>
+          <article class="metric-card"><div class="card-icon">◎</div><p>Inference / compute / data</p><strong id="cost-to-serve">—</strong><span id="cost-breakdown">Loading cost composition</span></article>
+          <article class="metric-card metric-card-highlight"><div class="card-icon card-icon-light">⌁</div><p>Budget health</p><strong id="budget-health">—</strong><span id="budget-caption">Loading guardrails</span></article>
+        </section>
+
+        <section class="ai-grid">
+          <section class="panel cost-surface" aria-labelledby="model-heading">
+            <div class="panel-heading compact-heading"><div><p class="eyebrow">Cost-to-serve</p><h2 id="model-heading">Spend by model</h2></div><span class="trend-chip">Live ledger</span></div>
+            <div class="model-list" id="model-list"></div>
+          </section>
+          <section class="panel budget-panel" aria-labelledby="budget-heading">
+            <div class="panel-heading compact-heading"><div><p class="eyebrow">Guardrails</p><h2 id="budget-heading">App budgets</h2></div><span class="quiet-action">⋮</span></div>
+            <div id="budget-list" class="budget-list"></div>
+          </section>
+          <section class="panel customer-panel" aria-labelledby="customer-heading">
+            <div class="panel-heading compact-heading"><div><p class="eyebrow">Unit economics</p><h2 id="customer-heading">Top customers</h2></div></div>
+            <div id="customer-list" class="customer-list"></div>
+          </section>
+        </section>
+
+        <section class="ai-lower-grid">
+          <section class="panel usage-panel">
+            <div class="panel-heading"><div><p class="eyebrow">Attributed usage</p><h2>Recent AI requests</h2></div><span id="usage-count" class="count-pill">0 requests</span></div>
+            <div class="table-wrap"><table><thead><tr><th>App / customer</th><th>Model</th><th>Tokens</th><th>Cost to serve</th></tr></thead><tbody id="usage-table"></tbody></table></div>
+          </section>
+          <aside class="panel preflight-panel">
+            <p class="eyebrow">Budget gate simulator</p><h2>Check before you call the model.</h2>
+            <p>Simulates an SDK preflight with the configured support-assistant budget.</p>
+            <button id="run-preflight" class="button button-primary">Run preflight <span aria-hidden="true">↗</span></button>
+            <div id="preflight-result" class="preflight-empty">No request checked yet.</div>
+          </aside>
+        </section>
+      </div>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
