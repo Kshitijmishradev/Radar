@@ -9,16 +9,22 @@
     <script defer src="/assets/app.js"></script>
   </head>
   <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
     <main class="page-shell">
       <header class="topbar">
         <div class="brand">
+          <button class="nav-toggle" type="button" aria-label="Dashboard navigation">⌁</button>
           <span class="brand-mark" aria-hidden="true">R</span>
           <div>
-            <p class="eyebrow">Cost Control</p>
-            <h1>Radar Remediation Engine</h1>
+            <h1>Radar</h1>
+            <p class="brand-subtitle">FinOps control center</p>
           </div>
         </div>
-        <div class="connection"><span class="connection-dot"></span><span id="connection-status">Loading data</span></div>
+        <div class="topbar-actions">
+          <div class="connection"><span class="connection-dot"></span><span id="connection-status">Loading data</span></div>
+          <div class="profile-chip"><span class="profile-avatar">FM</span><span><strong id="profile-tenant">FinOps member</strong><small id="profile-role">Local demo</small></span></div>
+        </div>
       </header>
 
       <section class="auth-gate" id="auth-gate" aria-labelledby="auth-heading">
@@ -39,43 +45,79 @@
       </section>
 
       <div id="dashboard-content" hidden>
-      <section class="intro">
-        <div>
-          <p class="eyebrow">Operations overview</p>
-          <h2>Make cost actions safe, visible, and reversible.</h2>
+      <section class="welcome-panel">
+        <div class="welcome-date"><span id="today-day">—</span><small id="today-month">—</small></div>
+        <div class="welcome-copy">
+          <p class="eyebrow">Today’s control room</p>
+          <h2>Keep cloud spend intentional.</h2>
+          <p>Review savings signals, verify the policy decision, then approve only the actions you trust.</p>
         </div>
-        <button class="button button-secondary" id="refresh-button">Refresh</button>
+        <div class="welcome-actions"><span class="live-chip"><i></i> Policy engine live</span><button class="button button-secondary" id="refresh-button">Refresh view <span aria-hidden="true">↗</span></button></div>
       </section>
 
       <section class="metrics" aria-label="Cost remediation metrics">
-        <article class="metric-card">
+        <article class="metric-card metric-card-coral">
+          <div class="card-icon" aria-hidden="true">✓</div>
           <p>Pending approvals</p>
           <strong id="pending-count">—</strong>
-          <span>Require a human decision</span>
+          <span>Actions awaiting a human decision</span>
         </article>
         <article class="metric-card">
-          <p>Completed actions</p>
-          <strong id="completed-count">—</strong>
-          <span>Simulated cloud changes</span>
+          <div class="card-icon card-icon-dark" aria-hidden="true">◌</div>
+          <p>Detected daily spend</p>
+          <strong id="daily-spend-total">—</strong>
+          <span>Across the current anomaly set</span>
         </article>
         <article class="metric-card metric-card-highlight">
+          <div class="card-icon card-icon-light" aria-hidden="true">↗</div>
           <p>Projected monthly savings</p>
           <strong id="savings-total">—</strong>
-          <span>Across eligible actions</span>
+          <span>From policy-matched actions</span>
+        </article>
+      </section>
+
+      <section class="insight-grid" aria-label="FinOps decision intelligence">
+        <article class="panel decision-health">
+          <div class="panel-heading compact-heading">
+            <div><p class="eyebrow">Decision health</p><h2>Policy coverage</h2></div>
+            <span class="quiet-action" aria-hidden="true">⋮</span>
+          </div>
+          <div class="health-content">
+            <div class="coverage-ring" id="coverage-ring"><div><strong id="coverage-rate">—</strong><span>eligible</span></div></div>
+            <div class="health-copy"><strong id="coverage-summary">Evaluating signals</strong><p>Only policy-matched, non-production resources enter the approval queue.</p><span id="coverage-count" class="count-pill">0 evaluated</span></div>
+          </div>
+        </article>
+        <article class="panel scan-pattern">
+          <div class="panel-heading compact-heading">
+            <div><p class="eyebrow">Signal pattern</p><h2>Daily spend under review</h2></div>
+            <span class="trend-chip" id="scan-total">—</span>
+          </div>
+          <div class="bar-chart" id="scan-chart" aria-label="Recent FinOps scan pattern"></div>
+          <div class="chart-caption"><span>Earlier scans</span><span>Current scan</span></div>
+        </article>
+        <article class="panel operating-context">
+          <p class="eyebrow">Control context</p>
+          <h2>Your workspace</h2>
+          <div class="context-list">
+            <div><span>Tenant</span><strong id="context-tenant">—</strong></div>
+            <div><span>Access level</span><strong id="context-role">—</strong></div>
+            <div><span>Completed actions</span><strong id="completed-count">—</strong></div>
+          </div>
+          <p class="context-note"><span class="connection-dot connected"></span> Every action is recorded with policy evidence and an audit trail.</p>
         </article>
       </section>
 
       <section class="panel anomalies-panel" aria-labelledby="anomalies-heading">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Policy evaluation</p>
+            <p class="eyebrow">Decision ledger</p>
             <h2 id="anomalies-heading">Recent anomaly verdicts</h2>
           </div>
           <span class="count-pill" id="anomaly-total">0 anomalies</span>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Resource</th><th>Environment</th><th>Daily cost</th><th>Verdict</th><th>Reason</th></tr></thead>
+            <thead><tr><th>Resource</th><th>Environment</th><th>Daily cost</th><th>Verdict</th><th>Policy explanation</th></tr></thead>
             <tbody id="anomalies-table"><tr><td colspan="5" class="empty-state">Loading anomaly decisions…</td></tr></tbody>
           </table>
         </div>
@@ -85,7 +127,7 @@
         <section class="panel actions-panel" aria-labelledby="actions-heading">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">Workflow queue</p>
+              <p class="eyebrow">Human approval queue</p>
               <h2 id="actions-heading">Remediation actions</h2>
             </div>
             <span class="count-pill" id="action-total">0 actions</span>

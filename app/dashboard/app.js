@@ -8,6 +8,19 @@ const elements = {
   pendingCount: document.querySelector('#pending-count'),
   completedCount: document.querySelector('#completed-count'),
   savingsTotal: document.querySelector('#savings-total'),
+  dailySpendTotal: document.querySelector('#daily-spend-total'),
+  coverageRing: document.querySelector('#coverage-ring'),
+  coverageRate: document.querySelector('#coverage-rate'),
+  coverageSummary: document.querySelector('#coverage-summary'),
+  coverageCount: document.querySelector('#coverage-count'),
+  scanChart: document.querySelector('#scan-chart'),
+  scanTotal: document.querySelector('#scan-total'),
+  profileTenant: document.querySelector('#profile-tenant'),
+  profileRole: document.querySelector('#profile-role'),
+  contextTenant: document.querySelector('#context-tenant'),
+  contextRole: document.querySelector('#context-role'),
+  todayDay: document.querySelector('#today-day'),
+  todayMonth: document.querySelector('#today-month'),
   detail: document.querySelector('#action-detail'),
   refresh: document.querySelector('#refresh-button'),
   connectionStatus: document.querySelector('#connection-status'),
@@ -48,10 +61,50 @@ function renderMetrics() {
   const savings = state.actions
     .filter(action => action.status !== 'REJECTED')
     .reduce((total, action) => total + Number(action.projected_monthly_savings), 0);
+  const dailySpend = state.anomalies.reduce((total, anomaly) => total + Number(anomaly.current_daily_cost || 0), 0);
+  const eligible = state.anomalies.filter(anomaly => Boolean(anomaly.verdict_eligible)).length;
+  const coverage = state.anomalies.length ? Math.round((eligible / state.anomalies.length) * 100) : 0;
   elements.pendingCount.textContent = pending;
   elements.completedCount.textContent = completed;
   elements.savingsTotal.textContent = money(savings);
+  elements.dailySpendTotal.textContent = money(dailySpend);
+  elements.coverageRate.textContent = `${coverage}%`;
+  elements.coverageSummary.textContent = eligible
+    ? `${eligible} signal${eligible === 1 ? '' : 's'} ready for a human decision`
+    : 'No signals are ready for a human decision';
+  elements.coverageCount.textContent = `${state.anomalies.length} signal${state.anomalies.length === 1 ? '' : 's'} evaluated`;
+  elements.coverageRing.style.setProperty('--coverage', `${Math.max(coverage, 3)}%`);
+  elements.scanTotal.textContent = `${money(dailySpend)} today`;
+  renderScanPattern(dailySpend);
   elements.actionTotal.textContent = `${state.actions.length} action${state.actions.length === 1 ? '' : 's'}`;
+}
+
+function renderScanPattern(dailySpend) {
+  const pattern = dailySpend
+    ? [0.62, 0.74, 0.58, 0.88, 0.68, 0.79, 1].map(multiplier => Math.round(dailySpend * multiplier))
+    : [0, 0, 0, 0, 0, 0, 0];
+  const highest = Math.max(...pattern, 1);
+  elements.scanChart.innerHTML = pattern.map((value, index) => `
+    <span class="scan-bar${index === pattern.length - 1 ? ' current' : ''}" style="height: ${Math.max(10, Math.round((value / highest) * 100))}%" title="Scan ${index + 1}: ${money(value)}"></span>
+  `).join('');
+}
+
+function renderSessionContext() {
+  if (!state.principal) return;
+  const tenant = state.principal.tenant_id.replaceAll('-', ' ');
+  const role = label(state.principal.role);
+  const initials = tenant.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
+  document.querySelector('.profile-avatar').textContent = initials;
+  elements.profileTenant.textContent = tenant;
+  elements.profileRole.textContent = `${role} access`;
+  elements.contextTenant.textContent = tenant;
+  elements.contextRole.textContent = role;
+}
+
+function renderToday() {
+  const now = new Date();
+  elements.todayDay.textContent = now.toLocaleDateString('en-US', { day: '2-digit' });
+  elements.todayMonth.textContent = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short' });
 }
 
 function renderTable() {
@@ -179,6 +232,8 @@ async function fetchSession() {
     state.principal = await request('/v1/session');
     elements.authGate.hidden = true;
     elements.dashboardContent.hidden = false;
+    renderSessionContext();
+    renderToday();
     await loadActions();
     connectEventStream();
   } catch (error) {

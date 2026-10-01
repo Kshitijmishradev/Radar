@@ -8,5 +8,8 @@ class DashboardAssetTests(unittest.TestCase):
         document = (root / "index.html").read_text()
         script = (root / "app.js").read_text()
         self.assertIn('id="actions-table"', document)
+        self.assertIn('id="coverage-ring"', document)
+        self.assertIn('id="daily-spend-total"', document)
         self.assertIn('PENDING_APPROVAL', script)
+        self.assertIn('renderScanPattern', script)
         self.assertIn('/v1/actions/${actionId}/${command}', script)
