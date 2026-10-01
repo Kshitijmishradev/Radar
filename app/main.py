@@ -18,6 +18,7 @@ from app.ai_costs import AICostService, AIUsageInput
 from app.domain import AnomalyInput, RemediationService, Repository, WorkflowError
 from app.events import EventBroker
 from app.jobs import DurableJobQueue, RemediationWorker
+from app.ollama_adapter import OllamaAdapter, OllamaRuntimeConfig, OllamaUnavailable
 from app.security import Principal, Role, SESSION_COOKIE, current_principal, require_role, signer
 
 
@@ -64,10 +65,25 @@ class AIBudgetRequest(BaseModel):
     warning_percent: int = Field(default=80, ge=1, le=100)
 
 
+class OllamaGenerateRequest(BaseModel):
+    tenant_id: str = Field(min_length=1)
+    app: str = Field(min_length=1, examples=["support-assistant"])
+    customer: str = Field(min_length=1, examples=["acme-corp"])
+    end_user: str = Field(min_length=1, examples=["jane@acme.com"])
+    model: str = Field(default="llama3.2:3b", min_length=1)
+    prompt: str = Field(min_length=1, max_length=8_000)
+    max_tokens: int = Field(default=120, ge=1, le=1_000)
+
+
 database_path = os.getenv("DATABASE_PATH", str(Path("data") / "radar.db"))
 inline_worker_enabled = os.getenv("RUN_LOCAL_WORKER", "true").lower() in {"1", "true", "yes"}
 service = RemediationService(Repository(database_path))
 ai_cost_service = AICostService(service.repository)
+ollama_adapter = OllamaAdapter(OllamaRuntimeConfig(
+    base_url=os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434"),
+    hourly_capacity_cost=float(os.getenv("OLLAMA_HOURLY_CAPACITY_COST", "1.20")),
+    effective_concurrency=int(os.getenv("OLLAMA_EFFECTIVE_CONCURRENCY", "1")),
+))
 event_broker = EventBroker()
 job_queue = DurableJobQueue(service.repository)
 worker = RemediationWorker(service.repository, service)
@@ -225,6 +241,28 @@ async def set_ai_budget(request: AIBudgetRequest, principal: Principal = Depends
     budget = ai_cost_service.set_budget(principal.tenant_id, request.app, request.monthly_limit, request.warning_percent)
     await event_broker.publish("ai.budget_updated", principal.tenant_id, {"budget": budget})
     return budget
+
+
+@app.get("/v1/ai/ollama/health")
+def ollama_health(principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    return {"available": ollama_adapter.health(), "base_url": ollama_adapter.config.base_url}
+
+
+@app.post("/v1/ai/ollama/generate")
+async def ollama_generate(request: OllamaGenerateRequest, principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    require_role(principal, Role.OPERATOR)
+    if principal.tenant_id != request.tenant_id:
+        raise HTTPException(status_code=403, detail="You cannot submit Ollama usage for another tenant.")
+    try:
+        text, usage, telemetry = ollama_adapter.generate_usage(
+            request.tenant_id, request.app, request.customer, request.end_user,
+            request.model, request.prompt, request.max_tokens,
+        )
+        event = ai_cost_service.record_usage(usage)
+    except OllamaUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    await event_broker.publish("ai.ollama_usage_recorded", request.tenant_id, {"usage": event, "telemetry": telemetry})
+    return {"response": text, "usage": event, "telemetry": telemetry}
 
 
 @app.get("/v1/actions/{action_id}")

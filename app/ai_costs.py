@@ -105,6 +105,14 @@ class AICostService:
             raise ValueError(f"Unknown model price. Supported demo models: {supported}.") from error
 
     def estimate(self, usage: AIUsageInput) -> dict[str, float]:
+        if usage.provider.lower() == "ollama":
+            # Local/self-hosted models are costed from provisioned compute capacity,
+            # supplied as compute_cost by the Ollama adapter or a preflight estimate.
+            total = usage.compute_cost + usage.data_cost
+            return {
+                "inference_cost": 0, "compute_cost": round(usage.compute_cost, 6),
+                "data_cost": round(usage.data_cost, 6), "total_cost": round(total, 6),
+            }
         price = self._price_for(usage.provider, usage.model)
         standard_input = max(usage.input_tokens - usage.cached_input_tokens, 0)
         inference_cost = (

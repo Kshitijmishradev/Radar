@@ -113,6 +113,23 @@ The seed creates a `demo-video` application-AI dataset. It uses a local,
 versioned demonstration price catalog; it does not call an AI provider or claim
 to use live provider prices.
 
+### Live Ollama telemetry test
+
+If [Ollama](https://ollama.com/) is running locally, Radar AI can call it and
+record the response's actual input tokens, output tokens, cache count, and
+duration. For a self-hosted model, the cost is allocated from the machine's
+hourly capacity cost rather than a provider token price.
+
+```bash
+ollama pull llama3.2:3b
+OLLAMA_HOURLY_CAPACITY_COST=1.20 make run
+```
+
+Open `/ai` and select **Run Ollama request**. `OLLAMA_HOURLY_CAPACITY_COST`
+should be the hourly price of the deployed CPU/GPU node; it defaults to `$1.20`
+for the local demo. Configure `OLLAMA_EFFECTIVE_CONCURRENCY` when one node
+serves multiple requests concurrently.
+
 ## Test
 
 ```bash

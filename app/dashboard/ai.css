@@ -26,11 +26,19 @@
 .preflight-panel h2 { font-size: 20px; }
 .preflight-panel > p:not(.eyebrow) { margin: 8px 0 17px; color: #c2bfbc; font-size: 11px; line-height: 1.5; }
 .preflight-panel .button-primary { color: #1e1d1c; background: #fff; box-shadow: none; }
+.preflight-panel .button-secondary { margin-top: 5px; color: #1e1d1c; background: #e7f3ed; }
 .preflight-empty, .preflight-result { margin-top: 15px; padding: 12px; border-radius: 12px; color: #aaa6a2; background: #2a2927; font-size: 10px; line-height: 1.45; }
 .preflight-result strong, .preflight-result span, .preflight-result small { display: block; }
 .preflight-result strong { margin-bottom: 4px; font-size: 11px; }
 .preflight-result small { margin-top: 7px; color: #aaa6a2; }
 .fallback-button { margin-top: 10px; border: 0; border-radius: 999px; padding: 7px 9px; color: #1e1d1c; background: #fff; cursor: pointer; font-size: 10px; font-weight: 800; }
+.ollama-divider { height: 1px; margin: 17px 0 14px; background: #3a3937; }
+.ollama-empty, .ollama-result, .ollama-error { margin-top: 10px; padding: 10px; border-radius: 10px; color: #aaa6a2; background: #2a2927; font-size: 10px; line-height: 1.45; }
+.ollama-result { color: #b2e2cc; }
+.ollama-result strong, .ollama-result span, .ollama-result small { display: block; }
+.ollama-result span { margin: 4px 0; color: white; }
+.ollama-result small { color: #aaa6a2; }
+.ollama-error { color: #ffaaa0; }
 .decision-allow { color: #9ed4bf; }
 .decision-warn { color: #ffd08e; }
 .decision-block { color: #ff9d91; }

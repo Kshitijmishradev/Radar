@@ -18,3 +18,6 @@ class DashboardAssetTests(unittest.TestCase):
         self.assertIn('Budget gate simulator', ai_document)
         self.assertIn('/v1/ai/preflight', ai_script)
         self.assertIn('Use ${escapeHtml(fallback.provider)}', ai_script)
+        self.assertIn('Run Ollama request', ai_document)
+        self.assertIn('/v1/ai/ollama/generate', ai_script)
+        self.assertIn('Number(value) < 0.01', ai_script)
