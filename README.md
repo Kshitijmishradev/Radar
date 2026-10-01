@@ -1,8 +1,38 @@
 # Radar Remediation Engine
 
-A deterministic, local-first FinOps remediation control plane.
+Radar is a dashboard that helps a company understand, control, and reduce two fast-growing costs:
 
-It receives a cost anomaly, evaluates explicit policy rules, creates an approval-gated remediation action, simulates a cloud change, and retains an immutable audit trail. The initial workflow covers stopping an idle, non-production EC2 instance and starting it again as a rollback.
+1. **Cloud infrastructure** — for example, a server that is running but no one is using.
+2. **AI usage** — for example, an application making expensive model calls or renting a GPU to run its own model.
+
+It is a portfolio prototype inspired by the FinOps (cloud financial operations) workflow: spot an unusual cost, check it against clear rules, ask the right person for approval, and keep a record of what happened.
+
+## Start here — no technical background required
+
+Imagine a company notices that its cloud bill suddenly rises, or that its AI assistant is becoming expensive to run. Radar answers four practical questions:
+
+| Question | What Radar does |
+| --- | --- |
+| **What is costing us money?** | Shows unusual cloud spend and the cost of individual AI requests in one place. |
+| **Is it safe to act?** | Checks simple safety rules. For example, it will never propose automatically stopping a production system. |
+| **Who has to approve it?** | Sends a suggested action through an approval step rather than changing anything immediately. |
+| **Can we explain the decision later?** | Keeps a timestamped history of the alert, decision, approver, action, and rollback. |
+
+### What you can see in the dashboard
+
+- **Cloud Control (`/`)**: a cost anomaly is assessed against policy. A safe, non-production resource can be proposed for shutdown; production resources and unsafe cases are rejected with an explanation. An approved action can be simulated and then rolled back.
+- **Radar AI (`/ai`)**: each model request is attributed to an application, customer, and end user. The dashboard shows spend by model and customer, checks budgets *before* a request is made, and can offer an explicit lower-cost model option when a request would exceed budget.
+- **Self-hosted AI / GPU view**: when a company runs a model itself with Ollama, Radar records the real tokens and runtime. It can replay that measured work against a market GPU rental rate, making the cost of operating a model visible even when the model software itself is free.
+
+### The story this project demonstrates
+
+> A team receives a cost signal. Radar evaluates it using defined safety and budget rules. If action is appropriate, a human approves it. The system records the outcome and immediately updates the dashboard. For AI, the same idea happens before a costly model request is sent.
+
+### What this is—and what it is not
+
+This is a working local prototype designed to demonstrate backend engineering decisions: secure tenant separation, role-based controls, approval workflows, reliable background work, real-time dashboard updates, cost policy evaluation, and audit history.
+
+It does **not** connect to a real AWS account or rent a cloud GPU. Cloud changes are simulated so the demo is safe. The GPU-rental screen uses a named public market rate with real local model telemetry; it is a cost replay, not a benchmark of local hardware against that GPU.
 
 ## Safety model
 
@@ -75,8 +105,6 @@ curl http://127.0.0.1:8000/v1/actions/ACTION_ID/audit
 curl -X POST http://127.0.0.1:8000/v1/actions/ACTION_ID/rollback
 ```
 
-## Test
-
 ## Recording-ready dashboard demo
 
 Load a clean, repeatable tenant with one eligible remediation and seven rejected
@@ -92,7 +120,7 @@ dashboard shows the complete anomaly history and the reason behind every policy
 verdict. It is safe to run the seed command again; it resets only the
 `demo-video` tenant.
 
-## Application AI cost control
+## Application AI cost control (technical detail)
 
 Radar AI is a second, application-AI control surface at `http://127.0.0.1:8000/ai`.
 It demonstrates the product direction beyond cloud resources: request-level model
