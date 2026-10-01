@@ -21,7 +21,7 @@
 .ai-empty { padding: 22px 0; color: var(--muted); font-size: 11px; text-align: center; }
 .ai-lower-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, .75fr); gap: 12px; margin-top: 12px; }
 .usage-panel { overflow: hidden; }
-.preflight-panel { min-height: 294px; padding: 20px; background: #1f1e1d; color: white; }
+.preflight-panel { min-height: 410px; padding: 20px; background: #1f1e1d; color: white; }
 .preflight-panel .eyebrow { color: #aaa6a2; }
 .preflight-panel h2 { font-size: 20px; }
 .preflight-panel > p:not(.eyebrow) { margin: 8px 0 17px; color: #c2bfbc; font-size: 11px; line-height: 1.5; }

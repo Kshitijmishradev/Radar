@@ -20,4 +20,6 @@ class DashboardAssetTests(unittest.TestCase):
         self.assertIn('Use ${escapeHtml(fallback.provider)}', ai_script)
         self.assertIn('Run Ollama request', ai_document)
         self.assertIn('/v1/ai/ollama/generate', ai_script)
+        self.assertIn('Run 3-step RTX 4090 replay', ai_document)
+        self.assertIn('/v1/ai/ollama/scenarios/rental-replay', ai_script)
         self.assertIn('Number(value) < 0.01', ai_script)

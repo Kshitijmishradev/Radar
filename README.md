@@ -130,6 +130,17 @@ should be the hourly price of the deployed CPU/GPU node; it defaults to `$1.20`
 for the local demo. Configure `OLLAMA_EFFECTIVE_CONCURRENCY` when one node
 serves multiple requests concurrently.
 
+### GPU rental workload replay
+
+**Run 3-step RTX 4090 replay** on `/ai` executes a real three-step, iterative
+Ollama workload (risk analysis, plan, and critique), records each inference,
+and prices its measured runtime using a named market profile: Runpod RTX 4090
+Secure Cloud at `$0.74/hour` (checked 2026-10-01). This is a **lease-rate cost
+replay**, not an RTX 4090 benchmark: the model runs locally, so the measured
+duration is multiplied by the GPU lease rate only to make cost exposure
+concrete. For a real performance-and-cost measurement, run the adapter against
+an Ollama server hosted on the rented GPU by setting `OLLAMA_BASE_URL`.
+
 ## Test
 
 ```bash

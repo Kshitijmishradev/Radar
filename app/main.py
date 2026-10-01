@@ -19,6 +19,7 @@ from app.domain import AnomalyInput, RemediationService, Repository, WorkflowErr
 from app.events import EventBroker
 from app.jobs import DurableJobQueue, RemediationWorker
 from app.ollama_adapter import OllamaAdapter, OllamaRuntimeConfig, OllamaUnavailable
+from app.ollama_scenarios import IterativeOllamaScenario, RUNPOD_RTX_4090_SECURE
 from app.security import Principal, Role, SESSION_COOKIE, current_principal, require_role, signer
 
 
@@ -73,6 +74,11 @@ class OllamaGenerateRequest(BaseModel):
     model: str = Field(default="llama3.2:3b", min_length=1)
     prompt: str = Field(min_length=1, max_length=8_000)
     max_tokens: int = Field(default=120, ge=1, le=1_000)
+
+
+class OllamaRentalScenarioRequest(BaseModel):
+    tenant_id: str = Field(min_length=1)
+    model: str = Field(default="llama3.2:3b", min_length=1)
 
 
 database_path = os.getenv("DATABASE_PATH", str(Path("data") / "radar.db"))
@@ -263,6 +269,21 @@ async def ollama_generate(request: OllamaGenerateRequest, principal: Principal =
         raise HTTPException(status_code=503, detail=str(error)) from error
     await event_broker.publish("ai.ollama_usage_recorded", request.tenant_id, {"usage": event, "telemetry": telemetry})
     return {"response": text, "usage": event, "telemetry": telemetry}
+
+
+@app.post("/v1/ai/ollama/scenarios/rental-replay")
+async def ollama_rental_replay(request: OllamaRentalScenarioRequest, principal: Principal = Depends(current_principal)) -> dict[str, object]:
+    require_role(principal, Role.OPERATOR)
+    if principal.tenant_id != request.tenant_id:
+        raise HTTPException(status_code=403, detail="You cannot run an Ollama scenario for another tenant.")
+    try:
+        result = IterativeOllamaScenario(ai_cost_service, ollama_adapter.config.base_url).run(
+            request.tenant_id, request.model, RUNPOD_RTX_4090_SECURE,
+        )
+    except OllamaUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    await event_broker.publish("ai.ollama_rental_replay", request.tenant_id, result)
+    return result
 
 
 @app.get("/v1/actions/{action_id}")
