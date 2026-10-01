@@ -29,7 +29,7 @@
         </div>
         <form id="login-form" class="login-form">
           <label>Tenant
-            <select id="tenant-input"><option value="acme-health">Acme Health</option><option value="queue-demo">Queue Demo</option></select>
+            <select id="tenant-input"><option value="demo-video">Video Demo</option><option value="acme-health">Acme Health</option><option value="queue-demo">Queue Demo</option></select>
           </label>
           <label>Role
             <select id="role-input"><option value="admin">Admin</option><option value="approver">Approver</option><option value="operator">Operator</option><option value="viewer">Viewer</option></select>
@@ -63,6 +63,22 @@
           <strong id="savings-total">—</strong>
           <span>Across eligible actions</span>
         </article>
+      </section>
+
+      <section class="panel anomalies-panel" aria-labelledby="anomalies-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Policy evaluation</p>
+            <h2 id="anomalies-heading">Recent anomaly verdicts</h2>
+          </div>
+          <span class="count-pill" id="anomaly-total">0 anomalies</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Resource</th><th>Environment</th><th>Daily cost</th><th>Verdict</th><th>Reason</th></tr></thead>
+            <tbody id="anomalies-table"><tr><td colspan="5" class="empty-state">Loading anomaly decisions…</td></tr></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="content-grid">

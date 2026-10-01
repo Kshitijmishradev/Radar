@@ -145,6 +145,11 @@ def list_actions(principal: Principal = Depends(current_principal)) -> list[dict
     return service.repository.list_actions(principal.tenant_id)
 
 
+@app.get("/v1/anomalies")
+def list_anomalies(principal: Principal = Depends(current_principal)) -> list[dict[str, object]]:
+    return service.repository.list_anomalies(principal.tenant_id)
+
+
 @app.get("/v1/actions/{action_id}")
 def get_action(action_id: str, principal: Principal = Depends(current_principal)) -> dict[str, object]:
     return scoped_action(action_id, principal)

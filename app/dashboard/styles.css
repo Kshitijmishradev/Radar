@@ -52,6 +52,7 @@ h2 { font-size: 24px; letter-spacing: -.035em; line-height: 1.2; }
 .button-quiet { color: var(--teal-dark); background: var(--teal-soft); }
 
 .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+.anomalies-panel { margin-bottom: 20px; }
 .metric-card, .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 13px; box-shadow: 0 2px 3px rgba(19, 42, 58, .02); }
 .metric-card { padding: 18px 20px; }
 .metric-card p, .metric-card span { color: var(--muted); font-size: 13px; }
@@ -76,6 +77,8 @@ tbody tr:last-child td { border-bottom: 0; }
 .status-approved { background: var(--purple-soft); color: var(--purple); }
 .status-succeeded, .status-rolled_back { background: var(--teal-soft); color: var(--teal-dark); }
 .status-rejected { background: var(--red-soft); color: var(--red); }
+.verdict-eligible { background: var(--teal-soft); color: var(--teal-dark); }
+.verdict-ineligible { background: var(--red-soft); color: var(--red); }
 .status-executing, .status-rolling_back { background: #eaf0f7; color: #42627e; }
 .empty-state { color: var(--muted); text-align: center; padding: 36px; }
 

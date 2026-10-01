@@ -77,6 +77,23 @@ curl -X POST http://127.0.0.1:8000/v1/actions/ACTION_ID/rollback
 
 ## Test
 
+## Recording-ready dashboard demo
+
+Load a clean, repeatable tenant with one eligible remediation and seven rejected
+policy cases:
+
+```bash
+.venv/bin/python -m scripts.seed_video_demo
+make run
+```
+
+Open `http://127.0.0.1:8000`, then choose **Video Demo** and **Admin**. The
+dashboard shows the complete anomaly history and the reason behind every policy
+verdict. It is safe to run the seed command again; it resets only the
+`demo-video` tenant.
+
+## Test
+
 ```bash
 python3 -m unittest discover -s tests -v
 ```

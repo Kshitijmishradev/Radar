@@ -123,6 +123,9 @@ class Repository:
                     idle_hours REAL NOT NULL,
                     current_daily_cost REAL NOT NULL,
                     expected_daily_cost REAL NOT NULL,
+                    verdict_eligible INTEGER,
+                    verdict_reason TEXT,
+                    projected_monthly_savings REAL,
                     created_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS remediation_actions (
@@ -165,15 +168,53 @@ class Repository:
                 );
                 """
             )
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(anomalies)").fetchall()}
+            for column, definition in (
+                ("verdict_eligible", "INTEGER"),
+                ("verdict_reason", "TEXT"),
+                ("projected_monthly_savings", "REAL"),
+            ):
+                if column not in columns:
+                    conn.execute(f"ALTER TABLE anomalies ADD COLUMN {column} {definition}")
 
     def save_anomaly(self, anomaly_id: str, anomaly: AnomalyInput) -> None:
         with self.transaction() as conn:
             conn.execute(
-                """INSERT INTO anomalies VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO anomalies (
+                    id, tenant_id, resource_id, resource_type, environment, owner,
+                    auto_stop, idle_hours, current_daily_cost, expected_daily_cost, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (anomaly_id, anomaly.tenant_id, anomaly.resource_id, anomaly.resource_type,
                  anomaly.environment, anomaly.owner, anomaly.auto_stop, anomaly.idle_hours,
                  anomaly.current_daily_cost, anomaly.expected_daily_cost, utc_now()),
             )
+
+    def update_anomaly_verdict(self, anomaly_id: str, decision: PolicyDecision) -> None:
+        with self.transaction() as conn:
+            conn.execute(
+                """UPDATE anomalies SET verdict_eligible = ?, verdict_reason = ?, projected_monthly_savings = ?
+                   WHERE id = ?""",
+                (decision.eligible, decision.reason, decision.projected_monthly_savings, anomaly_id),
+            )
+
+    def list_anomalies(self, tenant_id: str) -> list[dict[str, object]]:
+        rows = self._connection.execute(
+            "SELECT * FROM anomalies WHERE tenant_id = ? ORDER BY created_at DESC", (tenant_id,)
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def delete_tenant_data(self, tenant_id: str) -> None:
+        """Remove one tenant's local demo data, retaining all other tenants."""
+        with self.transaction() as conn:
+            action_rows = conn.execute(
+                "SELECT id FROM remediation_actions WHERE tenant_id = ?", (tenant_id,)
+            ).fetchall()
+            action_ids = [row["id"] for row in action_rows]
+            for action_id in action_ids:
+                conn.execute("DELETE FROM audit_events WHERE action_id = ?", (action_id,))
+                conn.execute("DELETE FROM jobs WHERE action_id = ?", (action_id,))
+            conn.execute("DELETE FROM remediation_actions WHERE tenant_id = ?", (tenant_id,))
+            conn.execute("DELETE FROM anomalies WHERE tenant_id = ?", (tenant_id,))
 
     def save_action(self, action: dict[str, object]) -> None:
         with self.transaction() as conn:
@@ -310,6 +351,7 @@ class RemediationService:
         anomaly_id = str(uuid.uuid4())
         self.repository.save_anomaly(anomaly_id, anomaly)
         decision = self.policy_engine.evaluate(anomaly)
+        self.repository.update_anomaly_verdict(anomaly_id, decision)
         result: dict[str, object] = {"anomaly_id": anomaly_id, "eligible": decision.eligible, "reason": decision.reason}
         if not decision.eligible:
             return result

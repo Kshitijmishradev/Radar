@@ -1,8 +1,10 @@
-const state = { actions: [], selectedId: null, eventSource: null, principal: null };
+const state = { actions: [], anomalies: [], selectedId: null, eventSource: null, principal: null };
 
 const elements = {
   actionTable: document.querySelector('#actions-table'),
   actionTotal: document.querySelector('#action-total'),
+  anomalyTable: document.querySelector('#anomalies-table'),
+  anomalyTotal: document.querySelector('#anomaly-total'),
   pendingCount: document.querySelector('#pending-count'),
   completedCount: document.querySelector('#completed-count'),
   savingsTotal: document.querySelector('#savings-total'),
@@ -67,6 +69,24 @@ function renderTable() {
     </tr>
   `).join('');
   document.querySelectorAll('[data-select]').forEach(button => button.addEventListener('click', () => selectAction(button.dataset.select)));
+}
+
+function renderAnomalies() {
+  elements.anomalyTotal.textContent = `${state.anomalies.length} anomal${state.anomalies.length === 1 ? 'y' : 'ies'}`;
+  if (!state.anomalies.length) {
+    elements.anomalyTable.innerHTML = '<tr><td colspan="5" class="empty-state">No anomaly decisions yet.</td></tr>';
+    return;
+  }
+  elements.anomalyTable.innerHTML = state.anomalies.map(anomaly => {
+    const eligible = Boolean(anomaly.verdict_eligible);
+    return `<tr>
+      <td><span class="resource-name">${escapeHtml(anomaly.resource_id)}</span><span class="resource-type">${escapeHtml(anomaly.resource_type)}</span></td>
+      <td>${escapeHtml(anomaly.environment)}</td>
+      <td class="savings">${money(anomaly.current_daily_cost)}/day</td>
+      <td><span class="status-badge verdict-${eligible ? 'eligible' : 'ineligible'}">${eligible ? 'Eligible' : 'Ineligible'}</span></td>
+      <td class="reason-cell">${escapeHtml(anomaly.verdict_reason || 'Pending evaluation')}</td>
+    </tr>`;
+  }).join('');
 }
 
 function escapeHtml(value) {
@@ -137,9 +157,12 @@ async function loadActions() {
   if (!state.principal) return;
   elements.connectionStatus.textContent = 'Refreshing data';
   try {
-    state.actions = await request('/v1/actions');
+    const [actions, anomalies] = await Promise.all([request('/v1/actions'), request('/v1/anomalies')]);
+    state.actions = actions;
+    state.anomalies = anomalies;
     renderMetrics();
     renderTable();
+    renderAnomalies();
     elements.connectionStatus.textContent = state.eventSource?.readyState === EventSource.OPEN
       ? 'Live updates connected'
       : 'Connected to local API';
