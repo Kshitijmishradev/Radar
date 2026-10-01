@@ -76,6 +76,39 @@ This starts separate API and worker containers. See [architecture notes](docs/AR
 
 This repository is a complete, portfolio-ready local prototype. Its current cloud action is intentionally simulated and its deployment artifacts stop before creating real cloud infrastructure. See [project status](PROJECT_STATUS.md) for the production replacement plan and the boundaries that require an AWS account and explicit deployment authority.
 
+## How Radar becomes production-grade
+
+The product flow does not need to change: Radar would still receive a cost signal,
+check policy, request approval where needed, record the result, and update the
+dashboard. What changes is the reliability, security, and connection to real
+customer systems behind that flow.
+
+| Today in this demo | Production-grade version | Why it matters |
+| --- | --- | --- |
+| Local demo sign-in | Company SSO (OIDC) and role-based access | Employees sign in with their work account, and each customer sees only its own data. |
+| One local SQLite file | Managed PostgreSQL database with backups | Cost records, policies, and audit history survive restarts and can scale safely. |
+| One app process sends live updates | Redis or a managed event service | A user receives the correct dashboard alert even when API requests land on different servers. |
+| Local background worker | Separate, autoscaling worker service and managed queue | A busy or failing job cannot lose an approved action; it can be retried safely. |
+| Simulated cloud action | Per-customer, least-privilege AWS roles | Radar can make real approved changes without receiving broad access to a customer's cloud account. |
+| Local Ollama connection | Authenticated AI gateway / sidecar and hosted model endpoints | Every approved LLM call can be measured consistently, with low latency and reliable attribution. |
+| Manual local settings | Secret manager, monitoring, alerts, backups, and infrastructure defined in Terraform | The service can be reproduced, observed, and safely operated by a team. |
+
+### Practical rollout plan
+
+1. **Deploy safely without real cloud actions.** Run the dashboard, API, workers, PostgreSQL, queue, and event service in a cloud environment. Connect SSO, secrets, logging, metrics, and backups. Keep remediation in “recommendation only” mode first.
+2. **Connect one customer sandbox.** Add a narrowly scoped cloud role that can read billing/resource signals and perform only one reversible action. Test approval, audit history, and rollback with a non-production account.
+3. **Make AI control live.** Put the Radar preflight check into a small SDK, gateway, or sidecar beside a client application. It checks budget before a request and reports actual usage afterward. Start in `WARN` mode, then enable `BLOCK` only for agreed policies.
+4. **Prove reliability and security.** Load-test the API and live updates, test recovery from worker or database failures, review access controls, and add alerts for unusual spend or service health.
+5. **Expand gradually.** Add more cloud providers, AI providers, policy types, and automated actions only after each integration is auditable, reversible where possible, and approved by customers.
+
+### What “production-grade” means here
+
+It does not merely mean putting the dashboard on the internet. It means the
+system can protect customer data, remain available when one server fails, avoid
+losing or duplicating money-affecting actions, explain every decision, and give
+customers safe control over exactly what Radar is allowed to do. The detailed
+technical topology is in the [deployment guide](docs/DEPLOYMENT.md).
+
 ## Demonstration
 
 Sign in through the dashboard first, then create a qualifying anomaly through the API documentation or a signed session.
