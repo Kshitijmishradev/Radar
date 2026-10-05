@@ -1,4 +1,10 @@
 const state = { actions: [], anomalies: [], selectedId: null, eventSource: null, principal: null };
+const DEMO_PERSONAS = {
+  admin: { userId: 'maya.chen', name: 'Maya Chen', summary: 'Admin · full control-plane access', description: 'Can manage budgets and take any permitted action.' },
+  approver: { userId: 'priya.sharma', name: 'Priya Sharma', summary: 'Approver · approval decisions', description: 'Can approve or reject proposed cloud remediations.' },
+  operator: { userId: 'alex.morgan', name: 'Alex Morgan', summary: 'Operator · operational workflows', description: 'Can submit signals and roll back completed remediations.' },
+  viewer: { userId: 'jordan.lee', name: 'Jordan Lee', summary: 'Viewer · read-only access', description: 'Can inspect policy evidence and audit history, but cannot change decisions.' },
+};
 
 const elements = {
   actionTable: document.querySelector('#actions-table'),
@@ -15,10 +21,12 @@ const elements = {
   coverageCount: document.querySelector('#coverage-count'),
   scanChart: document.querySelector('#scan-chart'),
   scanTotal: document.querySelector('#scan-total'),
-  profileTenant: document.querySelector('#profile-tenant'),
+  profileName: document.querySelector('#profile-name'),
   profileRole: document.querySelector('#profile-role'),
+  contextUser: document.querySelector('#context-user'),
   contextTenant: document.querySelector('#context-tenant'),
   contextRole: document.querySelector('#context-role'),
+  accessSummary: document.querySelector('#access-summary'),
   todayDay: document.querySelector('#today-day'),
   todayMonth: document.querySelector('#today-month'),
   detail: document.querySelector('#action-detail'),
@@ -30,6 +38,9 @@ const elements = {
   loginForm: document.querySelector('#login-form'),
   tenantInput: document.querySelector('#tenant-input'),
   roleInput: document.querySelector('#role-input'),
+  rolePreviewTitle: document.querySelector('#role-preview-title'),
+  rolePreviewDescription: document.querySelector('#role-preview-description'),
+  logout: document.querySelector('#logout-button'),
 };
 
 function money(value) {
@@ -93,12 +104,21 @@ function renderSessionContext() {
   if (!state.principal) return;
   const tenant = state.principal.tenant_id.replaceAll('-', ' ');
   const role = label(state.principal.role);
+  const persona = DEMO_PERSONAS[state.principal.role];
   const initials = tenant.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
   document.querySelector('.profile-avatar').textContent = initials;
-  elements.profileTenant.textContent = tenant;
+  elements.profileName.textContent = persona?.name || state.principal.user_id;
   elements.profileRole.textContent = `${role} access`;
+  elements.contextUser.textContent = persona?.name || state.principal.user_id;
   elements.contextTenant.textContent = tenant;
   elements.contextRole.textContent = role;
+  elements.accessSummary.textContent = persona?.summary || `${role} access`;
+}
+
+function renderPersonaPreview() {
+  const persona = DEMO_PERSONAS[elements.roleInput.value];
+  elements.rolePreviewTitle.textContent = `${persona.name} — ${persona.description}`;
+  elements.rolePreviewDescription.textContent = persona.summary;
 }
 
 function renderToday() {
@@ -155,9 +175,12 @@ function actionButtons(action) {
   if (action.status === 'PENDING_APPROVAL' && canApprove) {
     controls.push('<button class="button button-primary" data-command="approve">Approve</button>');
     controls.push('<button class="button button-danger" data-command="reject">Reject</button>');
+  } else if (action.status === 'PENDING_APPROVAL') {
+    controls.push('<span class="permission-note">🔒 Approval requires the Approver role.</span>');
   }
   if (action.status === 'APPROVED') controls.push('<span class="count-pill">Queued for background execution</span>');
   if (action.status === 'SUCCEEDED' && canOperate) controls.push('<button class="button button-quiet" data-command="rollback">Rollback / start instance</button>');
+  if (action.status === 'SUCCEEDED' && !canOperate) controls.push('<span class="permission-note">🔒 Rollback requires the Operator role.</span>');
   return controls.join('');
 }
 
@@ -245,10 +268,11 @@ async function fetchSession() {
 
 async function signIn(event) {
   event.preventDefault();
+  const persona = DEMO_PERSONAS[elements.roleInput.value];
   const response = await fetch('/v1/auth/demo-login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ tenant_id: elements.tenantInput.value, role: elements.roleInput.value }),
+    body: JSON.stringify({ tenant_id: elements.tenantInput.value, role: elements.roleInput.value, user_id: persona.userId }),
   });
   if (!response.ok) {
     showToast('Demo sign-in is unavailable.');
@@ -256,6 +280,22 @@ async function signIn(event) {
   }
   showToast('Demo session started.');
   await fetchSession();
+}
+
+async function logout() {
+  try {
+    await request('/v1/auth/logout', { method: 'POST' });
+  } finally {
+    state.eventSource?.close();
+    state.eventSource = null;
+    state.principal = null;
+    state.selectedId = null;
+    elements.dashboardContent.hidden = true;
+    elements.authGate.hidden = false;
+    elements.connectionStatus.textContent = 'Choose a demo role';
+    renderPersonaPreview();
+    showToast('Session cleared. Choose another role to continue.');
+  }
 }
 
 function displayEventName(type) {
@@ -295,4 +335,7 @@ function connectEventStream() {
 
 elements.refresh.addEventListener('click', loadActions);
 elements.loginForm.addEventListener('submit', signIn);
+elements.roleInput.addEventListener('change', renderPersonaPreview);
+elements.logout.addEventListener('click', logout);
+renderPersonaPreview();
 fetchSession();

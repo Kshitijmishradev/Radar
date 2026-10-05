@@ -22,19 +22,21 @@
         <div class="topbar-actions">
           <a class="product-link" href="/">Cloud control</a>
           <div class="connection"><span class="connection-dot"></span><span id="connection-status">Loading data</span></div>
-          <div class="profile-chip"><span class="profile-avatar">AI</span><span><strong id="profile-tenant">FinOps member</strong><small id="profile-role">Local demo</small></span></div>
+          <div class="profile-chip"><span class="profile-avatar">AI</span><span><strong id="profile-name">FinOps member</strong><small id="profile-role">Local demo</small></span></div>
+          <button id="logout-button" class="text-button" type="button">Switch role</button>
         </div>
       </header>
 
       <section class="auth-gate" id="auth-gate" aria-labelledby="auth-heading">
         <div>
-          <p class="eyebrow">Local development access</p>
-          <h2 id="auth-heading">Choose a demo tenant and role.</h2>
-          <p>This page demonstrates application-AI cost attribution and preflight budget controls.</p>
+          <p class="eyebrow">Secure demo access</p>
+          <h2 id="auth-heading">Sign in as a decision-maker.</h2>
+          <p>Choose a persona to see which AI cost controls Radar allows that user to run.</p>
         </div>
         <form id="login-form" class="login-form">
           <label>Tenant<select id="tenant-input"><option value="demo-video">Video Demo</option><option value="acme-health">Acme Health</option><option value="queue-demo">Queue Demo</option></select></label>
-          <label>Role<select id="role-input"><option value="admin">Admin</option><option value="operator">Operator</option><option value="approver">Approver</option><option value="viewer">Viewer</option></select></label>
+          <label>Demo persona<select id="role-input"><option value="admin">Maya Chen — Admin</option><option value="approver">Priya Sharma — Approver</option><option value="operator">Alex Morgan — Operator</option><option value="viewer">Jordan Lee — Viewer</option></select></label>
+          <div class="role-preview"><strong id="role-preview-title">Maya Chen can manage budgets and take any permitted action.</strong><span id="role-preview-description">Use this role to demonstrate full control-plane access.</span></div>
           <button class="button button-primary" type="submit">Enter dashboard</button>
         </form>
       </section>
@@ -74,6 +76,7 @@
           <aside class="panel preflight-panel">
             <p class="eyebrow">Budget gate simulator</p><h2>Check before you call the model.</h2>
             <p>Simulates an SDK preflight with the configured support-assistant budget.</p>
+            <span id="ai-access-note" class="permission-note">Checking role permissions…</span>
             <button id="run-preflight" class="button button-primary">Run preflight <span aria-hidden="true">↗</span></button>
             <div id="preflight-result" class="preflight-empty">No request checked yet.</div>
             <div class="ollama-divider"></div>

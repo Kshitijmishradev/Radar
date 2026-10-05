@@ -18,3 +18,8 @@ class SessionSignerTests(unittest.TestCase):
 
     def test_admin_can_perform_any_role_action(self) -> None:
         self.assertTrue(Principal("alex", "acme", Role.ADMIN).allows(Role.OPERATOR))
+
+    def test_role_permissions_do_not_expand_beyond_the_assigned_role(self) -> None:
+        self.assertTrue(Principal("priya", "acme", Role.APPROVER).allows(Role.APPROVER))
+        self.assertFalse(Principal("priya", "acme", Role.APPROVER).allows(Role.OPERATOR))
+        self.assertFalse(Principal("jordan", "acme", Role.VIEWER).allows(Role.APPROVER))
