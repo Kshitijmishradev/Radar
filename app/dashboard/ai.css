@@ -4,6 +4,11 @@
 .ai-hero > div > p:last-child { max-width: 700px; margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .ai-hero-pill { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 999px; color: var(--green); background: var(--green-soft); font-size: 10px; font-weight: 750; }
 .ai-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.ai-efficiency-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-top: 12px; overflow: hidden; border: 1px solid #f0eeec; border-radius: 17px; background: #f0eeec; }
+.ai-efficiency-strip article { min-width: 0; padding: 14px 16px; background: #fff; }
+.ai-efficiency-strip span, .ai-efficiency-strip small { display: block; color: var(--muted); font-size: 9px; line-height: 1.35; }
+.ai-efficiency-strip span { font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.ai-efficiency-strip strong { display: block; margin: 7px 0 4px; font-size: 20px; font-weight: 650; letter-spacing: -.06em; }
 .ai-grid { display: grid; grid-template-columns: 1.1fr 1fr .9fr; gap: 12px; margin-top: 12px; }
 .cost-surface, .budget-panel, .customer-panel { min-height: 228px; }
 .model-list, .customer-list, .budget-list { padding: 15px 19px 18px; }
@@ -47,5 +52,5 @@
 .decision-allow { color: #9ed4bf; }
 .decision-warn { color: #ffd08e; }
 .decision-block { color: #ff9d91; }
-@media (max-width: 1000px) { .ai-grid { grid-template-columns: 1fr 1fr; } .customer-panel { grid-column: 1 / -1; } .ai-lower-grid { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .ai-hero, .ai-metrics, .ai-grid { grid-template-columns: 1fr; flex-direction: column; align-items: flex-start; } .customer-panel { grid-column: auto; } .ai-hero-pill { margin-top: 0; } }
+@media (max-width: 1000px) { .ai-grid { grid-template-columns: 1fr 1fr; } .customer-panel { grid-column: 1 / -1; } .ai-lower-grid { grid-template-columns: 1fr; } .ai-efficiency-strip { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 760px) { .ai-hero, .ai-metrics, .ai-grid { grid-template-columns: 1fr; flex-direction: column; align-items: flex-start; } .customer-panel { grid-column: auto; } .ai-hero-pill { margin-top: 0; } .ai-efficiency-strip { grid-template-columns: 1fr; } }

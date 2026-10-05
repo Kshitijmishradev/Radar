@@ -24,6 +24,7 @@ class DashboardAssetTests(unittest.TestCase):
         self.assertIn('Budget gate simulator', ai_document)
         self.assertIn('id="ai-access-note"', ai_document)
         self.assertIn('data-preflight-scenario="allow"', ai_document)
+        self.assertIn('id="average-request-cost"', ai_document)
         self.assertIn('/v1/ai/preflight', ai_script)
         self.assertIn('Use ${escapeHtml(fallback.provider)}', ai_script)
         self.assertIn('Run Ollama request', ai_document)
@@ -33,3 +34,4 @@ class DashboardAssetTests(unittest.TestCase):
         self.assertIn('Number(value) < 0.01', ai_script)
         self.assertIn('renderAIAccess', ai_script)
         self.assertIn('PREFLIGHT_SCENARIOS', ai_script)
+        self.assertIn('cost_per_thousand_tokens', ai_script)

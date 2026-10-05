@@ -44,6 +44,9 @@ class AICostServiceTests(unittest.TestCase):
         self.assertEqual(overview["request_count"], 1)
         self.assertEqual(overview["by_app"][0]["name"], "support-assistant")
         self.assertEqual(overview["by_customer"][0]["name"], "acme")
+        self.assertEqual(overview["average_request_cost"], 1.935)
+        self.assertEqual(overview["cost_per_thousand_tokens"], 0.00129)
+        self.assertEqual(overview["cache_efficiency_percent"], 20.0)
 
     def test_record_usage_is_idempotent_for_a_provider_request_id(self) -> None:
         first = self.service.record_usage(usage())

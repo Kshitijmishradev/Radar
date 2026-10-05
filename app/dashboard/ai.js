@@ -34,6 +34,7 @@ const elements = {
   totalCost: document.querySelector('#total-cost'), requestCount: document.querySelector('#request-count'),
   costToServe: document.querySelector('#cost-to-serve'), costBreakdown: document.querySelector('#cost-breakdown'),
   budgetHealth: document.querySelector('#budget-health'), budgetCaption: document.querySelector('#budget-caption'),
+  averageRequestCost: document.querySelector('#average-request-cost'), costPerThousand: document.querySelector('#cost-per-thousand'), cacheEfficiency: document.querySelector('#cache-efficiency'), premiumModelShare: document.querySelector('#premium-model-share'),
   modelList: document.querySelector('#model-list'), budgetList: document.querySelector('#budget-list'), customerList: document.querySelector('#customer-list'),
   usageTable: document.querySelector('#usage-table'), usageCount: document.querySelector('#usage-count'), preflight: document.querySelector('#run-preflight'),
   preflightResult: document.querySelector('#preflight-result'), ollamaTest: document.querySelector('#run-ollama-test'), ollamaResult: document.querySelector('#ollama-result'), rentalScenario: document.querySelector('#run-rental-scenario'), rentalResult: document.querySelector('#rental-result'), status: document.querySelector('#connection-status'), toast: document.querySelector('#toast'),
@@ -62,6 +63,10 @@ function render() {
   const atRisk = overview.budgets.filter(item => Number(item.percent_used) >= Number(item.warning_percent));
   elements.budgetHealth.textContent = atRisk.length ? `${atRisk.length} alert` : 'Healthy';
   elements.budgetCaption.textContent = atRisk.length ? 'One or more application budgets need attention' : `${overview.budgets.length} app guardrail${overview.budgets.length === 1 ? '' : 's'} within policy`;
+  elements.averageRequestCost.textContent = money(overview.average_request_cost);
+  elements.costPerThousand.textContent = money(overview.cost_per_thousand_tokens);
+  elements.cacheEfficiency.textContent = `${overview.cache_efficiency_percent}%`;
+  elements.premiumModelShare.textContent = `${overview.premium_model_spend_percent}%`;
   renderList(elements.modelList, overview.by_model, 'model costs'); renderList(elements.customerList, overview.by_customer, 'customer costs');
   elements.budgetList.innerHTML = overview.budgets.length ? overview.budgets.map(budget => `<div class="budget-row"><div><strong>${escapeHtml(budget.app)}</strong><span>${money(budget.month_to_date_spend)} of ${money(budget.monthly_limit)}</span></div><b>${budget.percent_used}%</b><i><em style="width:${Math.min(100, Number(budget.percent_used))}%"></em></i></div>`).join('') : '<p class="ai-empty">No app budgets configured.</p>';
   elements.usageCount.textContent = `${state.usage.length} request${state.usage.length === 1 ? '' : 's'}`;

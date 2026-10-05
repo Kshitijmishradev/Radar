@@ -264,6 +264,15 @@ class AICostService:
         inference = round(sum(float(row["inference_cost"]) for row in rows), 4)
         compute = round(sum(float(row["compute_cost"]) for row in rows), 4)
         data = round(sum(float(row["data_cost"]) for row in rows), 4)
+        input_tokens = sum(int(row["input_tokens"]) for row in rows)
+        output_tokens = sum(int(row["output_tokens"]) for row in rows)
+        cached_input_tokens = sum(int(row["cached_input_tokens"]) for row in rows)
+        total_tokens = input_tokens + output_tokens
+        premium_cost = sum(
+            float(row["total_cost"])
+            for row in rows
+            if (str(row["provider"]).lower(), str(row["model"]).lower()) in FALLBACKS
+        )
         by_app: dict[str, float] = {}
         by_model: dict[str, float] = {}
         by_customer: dict[str, float] = {}
@@ -286,6 +295,10 @@ class AICostService:
         return {
             "total_cost": total, "inference_cost": inference, "compute_cost": compute, "data_cost": data,
             "request_count": len(rows),
+            "average_request_cost": round(total / len(rows), 6) if rows else 0,
+            "cost_per_thousand_tokens": round((total / total_tokens) * 1_000, 6) if total_tokens else 0,
+            "cache_efficiency_percent": round((cached_input_tokens / input_tokens) * 100, 1) if input_tokens else 0,
+            "premium_model_spend_percent": round((premium_cost / total) * 100, 1) if total else 0,
             "by_app": self._rank(by_app), "by_model": self._rank(by_model), "by_customer": self._rank(by_customer),
             "budgets": budgets,
         }
