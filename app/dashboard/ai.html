@@ -43,18 +43,18 @@
 
       <div id="dashboard-content" hidden>
         <section class="ai-hero">
-          <div><p class="eyebrow">Application AI economics</p><h2>Know what every model request costs.</h2><p>Attribute tokens, compute and data to the app, customer and end user—then apply the budget guardrail before a request leaves your system.</p></div>
+          <div><p class="eyebrow">Application AI economics</p><h2>Know what every AI workload costs.</h2><p>Attribute tokens, compute and data to the app, customer and end user—then apply the budget guardrail before a workload leaves your system.</p></div>
           <div class="ai-hero-pill"><span class="connection-dot connected"></span> Request-time policy online</div>
         </section>
 
         <section class="ai-metrics" aria-label="AI spend metrics">
-          <article class="metric-card"><div class="card-icon card-icon-dark">⌁</div><p>Month-to-date AI cost</p><strong id="total-cost">—</strong><span id="request-count">Loading requests</span></article>
+          <article class="metric-card"><div class="card-icon card-icon-dark">⌁</div><p>Month-to-date AI cost</p><strong id="total-cost">—</strong><span id="request-count">Loading workloads</span></article>
           <article class="metric-card"><div class="card-icon">◎</div><p>Inference / compute / data</p><strong id="cost-to-serve">—</strong><span id="cost-breakdown">Loading cost composition</span></article>
           <article class="metric-card metric-card-highlight"><div class="card-icon card-icon-light">⌁</div><p>Budget health</p><strong id="budget-health">—</strong><span id="budget-caption">Loading guardrails</span></article>
         </section>
 
         <section class="ai-efficiency-strip" aria-label="AI efficiency metrics">
-          <article><span>Average request cost</span><strong id="average-request-cost">—</strong><small>Across recorded AI requests</small></article>
+          <article><span>Average workload cost</span><strong id="average-request-cost">—</strong><small>Across recorded AI workloads</small></article>
           <article><span>Cost per 1K tokens</span><strong id="cost-per-thousand">—</strong><small>Blended provider, compute, and data cost</small></article>
           <article><span>Cache efficiency</span><strong id="cache-efficiency">—</strong><small>Input tokens served from cache</small></article>
           <article><span>Premium model share</span><strong id="premium-model-share">—</strong><small>Spend on models with approved fallbacks</small></article>
@@ -62,7 +62,7 @@
 
         <section class="ai-decision-strip" aria-label="AI policy decision metrics">
           <article><span>Policy decisions</span><strong id="policy-decision-total">—</strong><small id="policy-decision-breakdown">Allow · Warn · Block</small></article>
-          <article><span>Blocked request exposure</span><strong id="blocked-exposure">—</strong><small>Estimated spend stopped by guardrails</small></article>
+          <article><span>Blocked workload exposure</span><strong id="blocked-exposure">—</strong><small>Estimated spend stopped by guardrails</small></article>
           <article><span>Fallbacks accepted</span><strong id="fallback-accepted">—</strong><small>Explicit lower-cost routes chosen</small></article>
           <article><span>Fallback savings</span><strong id="fallback-savings">—</strong><small>Estimated savings from accepted routes</small></article>
         </section>
@@ -89,21 +89,21 @@
 
         <section class="ai-lower-grid">
           <section class="panel usage-panel">
-            <div class="panel-heading"><div><p class="eyebrow">Attributed usage</p><h2>Recent AI requests</h2></div><span id="usage-count" class="count-pill">0 requests</span></div>
+            <div class="panel-heading"><div><p class="eyebrow">Attributed usage</p><h2>Recent AI workloads</h2></div><span id="usage-count" class="count-pill">0 workloads</span></div>
             <div class="table-wrap"><table><thead><tr><th>App / customer</th><th>Model</th><th>Tokens</th><th>Cost to serve</th></tr></thead><tbody id="usage-table"></tbody></table></div>
           </section>
           <aside class="panel preflight-panel">
             <p class="eyebrow">Budget gate simulator</p><h2>Check before you call the model.</h2>
-            <p>Pick a request shape to show how the same policy returns an allow, warning, or block decision.</p>
+            <p>Pick a workload shape to show how the same policy returns an allow, warning, or block decision.</p>
             <div class="preflight-scenarios" role="group" aria-label="Preflight demonstration scenarios">
-              <button class="scenario-button active" data-preflight-scenario="allow" type="button">Safe request</button>
-              <button class="scenario-button" data-preflight-scenario="warn" type="button">Near budget</button>
-              <button class="scenario-button" data-preflight-scenario="block" type="button">Over budget</button>
+              <button class="scenario-button active" data-preflight-scenario="allow" type="button">Safe workload</button>
+              <button class="scenario-button" data-preflight-scenario="warn" type="button">Near budget batch</button>
+              <button class="scenario-button" data-preflight-scenario="block" type="button">High-volume batch</button>
             </div>
-            <p id="preflight-scenario-hint" class="scenario-hint">Claims Copilot using GPT-4o mini is safely below its monthly budget.</p>
+            <p id="preflight-scenario-hint" class="scenario-hint">A normal Claims Copilot workload using GPT-4o mini is safely below its monthly budget.</p>
             <span id="ai-access-note" class="permission-note">Checking role permissions…</span>
-            <button id="run-preflight" class="button button-primary">Evaluate selected request <span aria-hidden="true">↗</span></button>
-            <div id="preflight-result" class="preflight-empty">No request checked yet.</div>
+            <button id="run-preflight" class="button button-primary">Evaluate selected workload <span aria-hidden="true">↗</span></button>
+            <div id="preflight-result" class="preflight-empty">No workload checked yet.</div>
             <div class="ollama-divider"></div>
             <p class="eyebrow">Live local validation</p>
             <button id="run-ollama-test" class="button button-secondary">Run Ollama request</button>

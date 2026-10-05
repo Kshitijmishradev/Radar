@@ -1,87 +1,143 @@
-# Radar demo script
+# Radar demo script — the production cost-control story
 
-This is a 4–5 minute recruiter demo. It is designed to show product judgment and
-backend engineering, rather than every screen in the application.
+This is a 4-minute recruiter demo. It leads with the operational problem Radar
+solves, then uses the cloud workflow to prove the backend safety model.
 
 ## Before recording
 
-In the project directory, reset the recording tenant:
+In the project directory, prepare the deterministic demo data:
 
 ```bash
 make demo
 ```
 
-Start the API without its embedded worker so the approval queue remains visible:
+Start the API without its embedded worker so the approved cloud action remains
+queued until you deliberately run it:
 
 ```bash
 make demo-api
 ```
 
-Open `http://127.0.0.1:8000`. Keep a second terminal ready with this command,
-but do not run it yet:
+Open the local address printed by the server (normally `http://127.0.0.1:8000`).
+Keep a second terminal ready with this command, but do not run it yet:
 
 ```bash
 make worker
 ```
 
-## 1. Opening — the problem (20 seconds)
+Start at the **Video Demo** tenant. Sign in as **Alex Morgan — Operator** for
+the AI section.
 
-Say: “Radar is a FinOps control plane for both cloud and AI spending. It makes
-cost decisions explainable, approval-gated, and auditable.”
+## 0:00–0:35 — Start with the business problem
 
-Sign in to the **Video Demo** tenant as **Alex Morgan — Operator**.
+Say:
 
-Point out the named user, tenant, and role in the header. Open the approval-ready
-cloud action. The action is visible, but its approval controls are locked. Explain
-that hiding the button is not the security boundary—the API enforces the same role
-check.
+> “Radar is not another cloud-cost dashboard. It is a decision-control layer
+> that prevents cloud and AI spend from growing silently. Here is a realistic
+> example: Support Assistant has already consumed $31,290 of its $35,000 monthly
+> AI guardrail. A scheduled high-volume GPT-4o workload would cost another
+> $4,887.50 and push the projected month-end spend to $36,177.50. Without Radar,
+> that workload runs and the overrun is discovered later. With Radar, policy is
+> evaluated before the workload is dispatched.”
 
-## 2. Cloud policy and human approval (75 seconds)
+## 0:35–1:35 — Prove the AI decision happens before spend
 
-1. Show the anomaly table. Point out the one eligible non-production EC2 instance
-   and the seven rejected examples.
-2. Pick the production instance row and read its policy explanation: production is
-   never eligible for automatic remediation.
-3. Switch role to **Priya Sharma — Approver**.
-4. Reopen the eligible action, show the policy evidence and projected savings, then
-   select **Approve**.
-5. Point out the audit entry and the queued action status.
-6. In the second terminal, run `make worker` once. The SSE-connected dashboard
-   updates when the simulated action succeeds.
-7. Switch back to **Alex Morgan — Operator** and use **Rollback / start instance**.
+Open **AI control**. Point out:
 
-Say: “The design separates policy evaluation, human approval, durable work, and
-execution. That prevents an anomaly detector from making a high-impact change by
-itself.”
+- **$39,970 month-to-date AI cost** across the recording-demo workload ledger.
+- **Support Assistant: $31,290 of $35,000 (89.4%)** in the app-budget panel.
+- The decision history showing `ALLOW`, `WARN`, `BLOCK`, and prior accepted
+  fallbacks.
 
-## 3. AI budget policy (75 seconds)
+Then select **High-volume batch** and choose **Evaluate selected workload**.
 
-Open **AI control** and sign in as **Alex Morgan — Operator**.
+Say:
 
-In the budget gate simulator, run each request shape in order:
+> “This is a high-volume production batch, not a single chat message. Radar
+> estimates the provider tokens, self-hosted compute, and data cost before the
+> model call. The policy blocks it because it would exceed the application’s
+> $35,000 budget.”
 
-1. **Safe request** — show `ALLOW` and the projected spend.
-2. **Near budget** — show `WARN`; the request may proceed, but the dashboard
-   explains it has crossed the warning threshold.
-3. **Over budget** — show `BLOCK`, then choose the explicit GPT-4o mini fallback.
+Point out the result: **$4,887.50 estimated cost** and **$36,177.50 projected
+spend**.
 
-Say: “Radar checks cost before an LLM request is sent. It never silently downgrades
-a model; the caller explicitly accepts the approved fallback.”
+Choose **Use openai / gpt-4o-mini**.
 
-## 4. Self-hosted AI cost (40 seconds, optional)
+Say:
 
-If Ollama and `llama3.2:3b` are available locally, select **Run Ollama request**.
-Show the real token count, measured duration, and allocated runtime cost.
+> “Radar does not silently downgrade a customer-facing model. It offers an
+> approved alternative and the caller explicitly accepts it. The fallback costs
+> $1,750.25, keeps projected spend at $33,040.25, and saves an estimated
+> $3,137.25 for this workload.”
 
-Then select **Run 3-step RTX 4090 replay**. Explain that the model work is real,
-but the RTX 4090 amount is a lease-rate replay using local runtime—not a claim
-that the local machine has RTX 4090 performance.
+## 1:35–2:25 — Show the cloud use case
 
-## 5. Close — production thinking (25 seconds)
+Open **Cloud control**. Stay signed in as **Alex Morgan — Operator**.
 
-Say: “This is deliberately safe locally: cloud changes are simulated. For
-production, I would replace SQLite with PostgreSQL, the local event broker with
-Redis or a managed event bus, the local queue with a managed queue, demo sessions
-with OIDC, and the simulated adapter with tenant-scoped IAM roles.”
+Say:
 
-End on the README production roadmap or `docs/DEPLOYMENT.md`.
+> “The same design applies to cloud spend. Radar found an idle non-production
+> instance that costs $220 per day, or $6,600 per month. The goal is not to let
+> an anomaly detector turn off infrastructure by itself. The goal is to make a
+> safe, explainable decision.”
+
+Point out:
+
+- **1 eligible signal and 7 policy denials**.
+- The **production** row and its denial explanation.
+- The decision inbox showing **$6,600** in monthly savings awaiting approval.
+
+Say:
+
+> “Production resources are rejected by policy. Other signals are rejected when
+> they are too cheap, recently active, opted out, unowned, staging, or unsupported.
+> The reason is preserved with every decision.”
+
+## 2:25–3:15 — Prove RBAC and durable execution
+
+Say:
+
+> “Alex can investigate the decision, but cannot approve it. The lock in the
+> interface is helpful, but the backend role check is the real security boundary.”
+
+Switch role to **Priya Sharma — Approver**. Select **Review decision** and
+point to the policy evidence. Then choose **Approve**.
+
+Say:
+
+> “Approval changes business state; it does not call the cloud provider directly
+> from a browser request. Radar writes a durable job and a worker executes it
+> separately. That means the workflow can safely retry if an API server restarts
+> or the cloud provider is slow.”
+
+In the second terminal, run:
+
+```bash
+make worker
+```
+
+Return to the dashboard and point to **Execution started**, **Execution
+succeeded**, and the audit trail.
+
+Say:
+
+> “The update arrives through Server-Sent Events. The browser sees the state
+> change without polling, while the audit trail records who proposed, approved,
+> and executed the action.”
+
+## 3:15–4:00 — Close with engineering judgment
+
+Say:
+
+> “Radar’s core value is that it makes spend control operational. For AI, it can
+> stop or reroute an expensive workload before money is spent. For cloud, it
+> separates detection, policy, human authorization, durable background work, and
+> execution. That protects reliability while still giving FinOps teams control.”
+
+> “This local demo is deliberately safe: cloud changes are simulated. In
+> production, I would use OIDC for company sign-in, PostgreSQL for the audit and
+> cost ledger, Redis or a managed event bus for multi-instance live updates, a
+> managed queue and workers, tenant-scoped IAM roles for cloud actions, and
+> Terraform to provision the infrastructure reproducibly.”
+
+End on the dashboard rather than a terminal.

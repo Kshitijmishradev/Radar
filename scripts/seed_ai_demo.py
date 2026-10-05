@@ -13,6 +13,14 @@ from app.domain import Repository
 
 
 TENANT = "demo-video"
+# The recording demo represents high-volume production workloads (for example,
+# scheduled document processing), rather than one person sending one chat prompt.
+# This keeps the financial scenario credible for an organization that needs FinOps
+# controls: $35K per application per month, not a hobby-project budget.
+WORKLOAD_SCALE = 1_000
+SCALED_FIELDS = (
+    "input_tokens", "output_tokens", "cached_input_tokens", "compute_cost", "data_cost",
+)
 
 
 def usage(request_id: str, **changes: object) -> AIUsageInput:
@@ -23,6 +31,8 @@ def usage(request_id: str, **changes: object) -> AIUsageInput:
         "compute_cost": 0.72, "data_cost": 0.24, "request_id": request_id,
     }
     payload.update(changes)
+    for field in SCALED_FIELDS:
+        payload[field] = payload[field] * WORKLOAD_SCALE  # type: ignore[operator]
     return AIUsageInput(**payload)  # type: ignore[arg-type]
 
 
@@ -30,8 +40,8 @@ def main() -> None:
     database_path = os.getenv("DATABASE_PATH", str(Path("data") / "radar.db"))
     service = AICostService(Repository(database_path))
     service.delete_tenant_data(TENANT)
-    service.set_budget(TENANT, "support-assistant", monthly_limit=35, warning_percent=80)
-    service.set_budget(TENANT, "claims-copilot", monthly_limit=35, warning_percent=80)
+    service.set_budget(TENANT, "support-assistant", monthly_limit=35_000, warning_percent=80)
+    service.set_budget(TENANT, "claims-copilot", monthly_limit=35_000, warning_percent=80)
     events = [
         usage("ai-demo-001"),
         usage("ai-demo-002", customer="northstar-health", end_user="priya@northstar.com", input_tokens=2_200_000, output_tokens=540_000),

@@ -7,25 +7,25 @@ const DEMO_PERSONAS = {
 };
 const PREFLIGHT_SCENARIOS = {
   allow: {
-    label: 'Safe request',
-    hint: 'Claims Copilot using GPT-4o mini is safely below its monthly budget.',
+    label: 'Safe workload',
+    hint: 'A normal Claims Copilot workload using GPT-4o mini is safely below its monthly budget.',
     app: 'claims-copilot', customer: 'northstar-health', end_user: 'kai@northstar.com',
-    provider: 'openai', model: 'gpt-4o-mini', input_tokens: 120000, output_tokens: 18000,
-    cached_input_tokens: 20000, compute_cost: 0.03, data_cost: 0.01,
+    provider: 'openai', model: 'gpt-4o-mini', input_tokens: 120_000_000, output_tokens: 18_000_000,
+    cached_input_tokens: 20_000_000, compute_cost: 30, data_cost: 10,
   },
   warn: {
-    label: 'Near budget',
-    hint: 'Support Assistant is already above its warning threshold, so a small request is allowed but flagged.',
+    label: 'Near budget batch',
+    hint: 'Support Assistant is already above its warning threshold, so this scheduled batch is allowed but flagged.',
     app: 'support-assistant', customer: 'acme-corp', end_user: 'jane@acme.com',
-    provider: 'openai', model: 'gpt-4o-mini', input_tokens: 400000, output_tokens: 50000,
-    cached_input_tokens: 80000, compute_cost: 0.10, data_cost: 0.03,
+    provider: 'openai', model: 'gpt-4o-mini', input_tokens: 400_000_000, output_tokens: 50_000_000,
+    cached_input_tokens: 80_000_000, compute_cost: 100, data_cost: 30,
   },
   block: {
-    label: 'Over budget',
-    hint: 'A premium GPT-4o request would exceed Support Assistant’s monthly guardrail and offers an explicit fallback.',
+    label: 'High-volume batch',
+    hint: 'A premium GPT-4o batch would exceed Support Assistant’s monthly guardrail and offers an explicit fallback.',
     app: 'support-assistant', customer: 'acme-corp', end_user: 'jane@acme.com',
-    provider: 'openai', model: 'gpt-4o', input_tokens: 900000, output_tokens: 140000,
-    cached_input_tokens: 250000, compute_cost: 1.20, data_cost: 0.35,
+    provider: 'openai', model: 'gpt-4o', input_tokens: 900_000_000, output_tokens: 140_000_000,
+    cached_input_tokens: 250_000_000, compute_cost: 1_200, data_cost: 350,
   },
 };
 const elements = {
@@ -73,7 +73,7 @@ function renderPolicyDecisions(summary) {
 function render() {
   const overview = state.overview;
   elements.totalCost.textContent = money(overview.total_cost);
-  elements.requestCount.textContent = `${overview.request_count} attributed request${overview.request_count === 1 ? '' : 's'}`;
+  elements.requestCount.textContent = `${overview.request_count} attributed workload${overview.request_count === 1 ? '' : 's'}`;
   elements.costToServe.textContent = money(overview.total_cost);
   elements.costBreakdown.textContent = `${money(overview.inference_cost)} inference · ${money(overview.compute_cost)} compute · ${money(overview.data_cost)} data`;
   const atRisk = overview.budgets.filter(item => Number(item.percent_used) >= Number(item.warning_percent));
@@ -86,8 +86,8 @@ function render() {
   renderPolicyDecisions(overview);
   renderList(elements.modelList, overview.by_model, 'model costs'); renderList(elements.customerList, overview.by_customer, 'customer costs');
   elements.budgetList.innerHTML = overview.budgets.length ? overview.budgets.map(budget => `<div class="budget-row"><div><strong>${escapeHtml(budget.app)}</strong><span>${money(budget.month_to_date_spend)} of ${money(budget.monthly_limit)}</span></div><b>${budget.percent_used}%</b><i><em style="width:${Math.min(100, Number(budget.percent_used))}%"></em></i></div>`).join('') : '<p class="ai-empty">No app budgets configured.</p>';
-  elements.usageCount.textContent = `${state.usage.length} request${state.usage.length === 1 ? '' : 's'}`;
-  elements.usageTable.innerHTML = state.usage.length ? state.usage.slice(0, 7).map(item => `<tr><td><span class="resource-name">${escapeHtml(item.app)}</span><span class="resource-type">${escapeHtml(item.customer_name)} · ${escapeHtml(item.end_user)}</span></td><td>${escapeHtml(item.provider)} / ${escapeHtml(item.model)}</td><td>${Number(item.input_tokens + item.output_tokens).toLocaleString()}</td><td class="savings">${money(item.total_cost)}</td></tr>`).join('') : '<tr><td colspan="4" class="empty-state">No attributed AI requests yet.</td></tr>';
+  elements.usageCount.textContent = `${state.usage.length} workload${state.usage.length === 1 ? '' : 's'}`;
+  elements.usageTable.innerHTML = state.usage.length ? state.usage.slice(0, 7).map(item => `<tr><td><span class="resource-name">${escapeHtml(item.app)}</span><span class="resource-type">${escapeHtml(item.customer_name)} · ${escapeHtml(item.end_user)}</span></td><td>${escapeHtml(item.provider)} / ${escapeHtml(item.model)}</td><td>${Number(item.input_tokens + item.output_tokens).toLocaleString()}</td><td class="savings">${money(item.total_cost)}</td></tr>`).join('') : '<tr><td colspan="4" class="empty-state">No attributed AI workloads yet.</td></tr>';
 }
 async function load() { if (!state.principal) return; try { [state.overview, state.usage] = await Promise.all([request('/v1/ai/overview'), request('/v1/ai/usage')]); render(); elements.status.textContent = state.source?.readyState === EventSource.OPEN ? 'Live updates connected' : 'Connected to local API'; } catch (error) { elements.status.textContent = 'API unavailable'; toast(error.message); } }
 async function session() { try { state.principal = await request('/v1/session'); elements.authGate.hidden = true; elements.dashboard.hidden = false; profile(); renderAIAccess(); await load(); connect(); } catch (_) { elements.authGate.hidden = false; } }
