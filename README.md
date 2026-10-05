@@ -24,6 +24,19 @@ Imagine a company notices that its cloud bill suddenly rises, or that its AI ass
 - **Radar AI (`/ai`)**: each model request is attributed to an application, customer, and end user. The dashboard shows spend by model and customer, checks budgets *before* a request is made, and can offer an explicit lower-cost model option when a request would exceed budget.
 - **Self-hosted AI / GPU view**: when a company runs a model itself with Ollama, Radar records the real tokens and runtime. It can replay that measured work against a market GPU rental rate, making the cost of operating a model visible even when the model software itself is free.
 
+### Reset the recording-ready demo
+
+Before recording a demo, run the following command. It resets only the
+`demo-video` tenant, creates one cloud action ready for approval plus seven
+clear policy denials, and loads the AI spend/budget examples used by Radar AI.
+
+```bash
+make demo
+```
+
+Then sign in as **Alex Morgan (Operator)**, **Priya Sharma (Approver)**, or
+**Maya Chen (Admin)** to demonstrate the different decision rights.
+
 ### The story this project demonstrates
 
 > A team receives a cost signal. Radar evaluates it using defined safety and budget rules. If action is appropriate, a human approves it. The system records the outcome and immediately updates the dashboard. For AI, the same idea happens before a costly model request is sent.
