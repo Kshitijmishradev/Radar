@@ -1,4 +1,4 @@
-.PHONY: run worker test demo container-up container-down
+.PHONY: run demo-api worker test demo container-up container-down
 
 run:
 	.venv/bin/uvicorn app.main:app --reload
@@ -11,6 +11,9 @@ test:
 
 demo:
 	.venv/bin/python -m scripts.seed_demo
+
+demo-api:
+	RUN_LOCAL_WORKER=false .venv/bin/uvicorn app.main:app --reload
 
 container-up:
 	docker compose up --build

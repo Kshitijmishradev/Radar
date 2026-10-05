@@ -37,6 +37,10 @@ make demo
 Then sign in as **Alex Morgan (Operator)**, **Priya Sharma (Approver)**, or
 **Maya Chen (Admin)** to demonstrate the different decision rights.
 
+For a complete 4–5 minute walkthrough, use the [recording script](docs/DEMO_SCRIPT.md).
+The [interview notes](docs/INTERVIEW_NOTES.md) explain the backend tradeoffs and
+production boundaries in recruiter-friendly language.
+
 ### The story this project demonstrates
 
 > A team receives a cost signal. Radar evaluates it using defined safety and budget rules. If action is appropriate, a human approves it. The system records the outcome and immediately updates the dashboard. For AI, the same idea happens before a costly model request is sent.
@@ -161,18 +165,9 @@ curl -X POST http://127.0.0.1:8000/v1/actions/ACTION_ID/rollback
 
 ## Recording-ready dashboard demo
 
-Load a clean, repeatable tenant with one eligible remediation and seven rejected
-policy cases:
-
-```bash
-.venv/bin/python -m scripts.seed_video_demo
-make run
-```
-
-Open `http://127.0.0.1:8000`, then choose **Video Demo** and **Admin**. The
-dashboard shows the complete anomaly history and the reason behind every policy
-verdict. It is safe to run the seed command again; it resets only the
-`demo-video` tenant.
+For a staged approval workflow, run `make demo`, then start the API with
+`make demo-api`. This leaves approved work queued until you start `make worker`
+in a second terminal, making the API/worker hand-off visible during the recording.
 
 ## Application AI cost control (technical detail)
 
