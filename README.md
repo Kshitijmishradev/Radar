@@ -114,6 +114,14 @@ customer systems behind that flow.
 4. **Prove reliability and security.** Load-test the API and live updates, test recovery from worker or database failures, review access controls, and add alerts for unusual spend or service health.
 5. **Expand gradually.** Add more cloud providers, AI providers, policy types, and automated actions only after each integration is auditable, reversible where possible, and approved by customers.
 
+### Operational checks in this prototype
+
+The API exposes `GET /health` for a simple process liveness check and `GET /ready`
+to verify that the database is reachable before a deployment sends it traffic.
+Every HTTP response carries an `X-Request-ID`, which also appears in operational
+logs to make production investigations traceable. AI usage writes are idempotent
+when a caller supplies a `request_id`, so provider retries do not double-count spend.
+
 ### What “production-grade” means here
 
 It does not merely mean putting the dashboard on the internet. It means the

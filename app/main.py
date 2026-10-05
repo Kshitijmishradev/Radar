@@ -5,6 +5,9 @@ from __future__ import annotations
 import os
 import asyncio
 import json
+import logging
+import time
+import uuid
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import AsyncIterator
@@ -21,6 +24,9 @@ from app.jobs import DurableJobQueue, RemediationWorker
 from app.ollama_adapter import OllamaAdapter, OllamaRuntimeConfig, OllamaUnavailable
 from app.ollama_scenarios import IterativeOllamaScenario, RUNPOD_RTX_4090_SECURE
 from app.security import Principal, Role, SESSION_COOKIE, current_principal, require_role, signer
+
+
+logger = logging.getLogger("radar.api")
 
 
 class AnomalyRequest(BaseModel):
@@ -125,6 +131,26 @@ dashboard_dir = Path(__file__).parent / "dashboard"
 app.mount("/assets", StaticFiles(directory=dashboard_dir), name="assets")
 
 
+@app.middleware("http")
+async def request_context(request: Request, call_next: object) -> Response:
+    """Attach a traceable request ID to API responses and operational logs."""
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    started_at = time.perf_counter()
+    try:
+        response = await call_next(request)  # type: ignore[operator]
+    except Exception:
+        logger.exception("request_failed", extra={"request_id": request_id, "path": request.url.path})
+        raise
+    duration_ms = round((time.perf_counter() - started_at) * 1_000, 2)
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "request_completed",
+        extra={"request_id": request_id, "method": request.method, "path": request.url.path,
+               "status_code": response.status_code, "duration_ms": duration_ms},
+    )
+    return response
+
+
 def actor_from_header(x_actor: str | None) -> str:
     return x_actor or "demo-user"
 
@@ -148,7 +174,26 @@ async def publish_action_event(event_type: str, action: dict[str, object]) -> No
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    """Liveness check: the API process is able to receive traffic."""
     return {"status": "ok", "adapter": "simulated"}
+
+
+@app.get("/ready")
+def ready() -> dict[str, object]:
+    """Readiness check for a load balancer: verify critical local dependencies."""
+    try:
+        service.repository._connection.execute("SELECT 1").fetchone()  # noqa: SLF001
+    except Exception as error:
+        logger.exception("readiness_check_failed")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database is unavailable.") from error
+    return {
+        "status": "ready",
+        "checks": {
+            "database": "ok",
+            "worker_mode": "inline-development-worker" if inline_worker_enabled else "separate-worker-expected",
+            "cloud_adapter": "simulated",
+        },
+    }
 
 
 @app.get("/", include_in_schema=False)

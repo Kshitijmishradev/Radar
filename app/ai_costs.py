@@ -223,6 +223,15 @@ class AICostService:
         return result
 
     def record_usage(self, usage: AIUsageInput) -> dict[str, object]:
+        # Providers and gateways retry after timeouts. Returning the first event for
+        # a caller-supplied request ID prevents a retry from double-counting spend.
+        if usage.request_id:
+            existing = self.repository._connection.execute(  # noqa: SLF001
+                "SELECT * FROM ai_usage_events WHERE tenant_id = ? AND request_id = ?",
+                (usage.tenant_id, usage.request_id),
+            ).fetchone()
+            if existing:
+                return dict(existing)
         estimate = self.estimate(usage)
         event_id = str(uuid.uuid4())
         with self.repository.transaction() as conn:

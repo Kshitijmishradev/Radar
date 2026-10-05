@@ -45,6 +45,12 @@ class AICostServiceTests(unittest.TestCase):
         self.assertEqual(overview["by_app"][0]["name"], "support-assistant")
         self.assertEqual(overview["by_customer"][0]["name"], "acme")
 
+    def test_record_usage_is_idempotent_for_a_provider_request_id(self) -> None:
+        first = self.service.record_usage(usage())
+        replay = self.service.record_usage(usage())
+        self.assertEqual(first["id"], replay["id"])
+        self.assertEqual(len(self.service.list_usage("tenant-a")), 1)
+
     def test_blocked_frontier_model_can_route_to_an_approved_fallback(self) -> None:
         self.service.set_budget("tenant-a", "support-assistant", monthly_limit=4)
         self.service.record_usage(usage())
