@@ -40,6 +40,15 @@ Say:
 > that workload runs and the overrun is discovered later. With Radar, policy is
 > evaluated before the workload is dispatched.”
 
+Then say:
+
+> “That timing is the point of the check before you call the model. Usage
+> telemetry is useful, but it arrives after the provider has already completed
+> the work and charged for it. A preflight happens at the last moment when Radar
+> can still block an avoidable cost, warn the caller, or offer a cheaper approved
+> route. In production, this decision would run in an SDK, gateway, or sidecar
+> next to the application—not as another slow model call.”
+
 ## 0:35–1:35 — Prove the AI decision happens before spend
 
 Open **AI control**. Point out:
@@ -57,6 +66,14 @@ Say:
 > estimates the provider tokens, self-hosted compute, and data cost before the
 > model call. The policy blocks it because it would exceed the application’s
 > $35,000 budget.”
+
+Then say:
+
+> “If this were only a reporting dashboard, we would learn about the extra cost
+> after the batch had run. The preflight is valuable because the application has
+> not dispatched the work yet. It can still make a deliberate product decision:
+> do not run it, run a cheaper approved model, or change the workload before it
+> creates a surprise bill.”
 
 Point out the result: **$4,887.50 estimated cost** and **$36,177.50 projected
 spend**.
