@@ -12,14 +12,17 @@ const elements = {
   anomalyTable: document.querySelector('#anomalies-table'),
   anomalyTotal: document.querySelector('#anomaly-total'),
   pendingCount: document.querySelector('#pending-count'),
+  pendingCaption: document.querySelector('#pending-caption'),
   completedCount: document.querySelector('#completed-count'),
   savingsTotal: document.querySelector('#savings-total'),
   dailySpendTotal: document.querySelector('#daily-spend-total'),
-  coverageRing: document.querySelector('#coverage-ring'),
-  coverageRate: document.querySelector('#coverage-rate'),
-  coverageSummary: document.querySelector('#coverage-summary'),
-  coverageCount: document.querySelector('#coverage-count'),
-  scanChart: document.querySelector('#scan-chart'),
+  reviewedCaption: document.querySelector('#reviewed-caption'),
+  priorityAction: document.querySelector('#priority-action'),
+  deniedCount: document.querySelector('#denied-count'),
+  policyReasons: document.querySelector('#policy-reasons'),
+  reviewedDaily: document.querySelector('#reviewed-daily'),
+  expectedDaily: document.querySelector('#expected-daily'),
+  excessDaily: document.querySelector('#excess-daily'),
   scanTotal: document.querySelector('#scan-total'),
   profileName: document.querySelector('#profile-name'),
   profileRole: document.querySelector('#profile-role'),
@@ -67,37 +70,58 @@ async function request(path, options = {}) {
 }
 
 function renderMetrics() {
-  const pending = state.actions.filter(action => action.status === 'PENDING_APPROVAL').length;
+  const pendingActions = state.actions.filter(action => action.status === 'PENDING_APPROVAL');
+  const pending = pendingActions.length;
   const completed = state.actions.filter(action => action.status === 'SUCCEEDED' || action.status === 'ROLLED_BACK').length;
-  const savings = state.actions
-    .filter(action => action.status !== 'REJECTED')
+  const pendingSavings = pendingActions
     .reduce((total, action) => total + Number(action.projected_monthly_savings), 0);
   const dailySpend = state.anomalies.reduce((total, anomaly) => total + Number(anomaly.current_daily_cost || 0), 0);
+  const expectedDaily = state.anomalies.reduce((total, anomaly) => total + Number(anomaly.expected_daily_cost || 0), 0);
+  const dailyExcess = Math.max(dailySpend - expectedDaily, 0);
   const eligible = state.anomalies.filter(anomaly => Boolean(anomaly.verdict_eligible)).length;
-  const coverage = state.anomalies.length ? Math.round((eligible / state.anomalies.length) * 100) : 0;
+  const rejected = state.anomalies.length - eligible;
   elements.pendingCount.textContent = pending;
+  elements.pendingCaption.textContent = pending ? 'A human approval is required before work can run' : 'No cloud action is waiting for approval';
   elements.completedCount.textContent = completed;
-  elements.savingsTotal.textContent = money(savings);
-  elements.dailySpendTotal.textContent = money(dailySpend);
-  elements.coverageRate.textContent = `${coverage}%`;
-  elements.coverageSummary.textContent = eligible
-    ? `${eligible} signal${eligible === 1 ? '' : 's'} ready for a human decision`
-    : 'No signals are ready for a human decision';
-  elements.coverageCount.textContent = `${state.anomalies.length} signal${state.anomalies.length === 1 ? '' : 's'} evaluated`;
-  elements.coverageRing.style.setProperty('--coverage', `${Math.max(coverage, 3)}%`);
-  elements.scanTotal.textContent = `${money(dailySpend)} today`;
-  renderScanPattern(dailySpend);
+  elements.savingsTotal.textContent = state.anomalies.length;
+  elements.dailySpendTotal.textContent = money(pendingSavings);
+  elements.reviewedCaption.textContent = `${eligible} eligible · ${rejected} rejected by policy`;
+  elements.scanTotal.textContent = `${money(dailyExcess)} excess / day`;
+  elements.reviewedDaily.textContent = money(dailySpend);
+  elements.expectedDaily.textContent = money(expectedDaily);
+  elements.excessDaily.textContent = money(dailyExcess);
+  renderPriorityAction(pendingActions);
+  renderPolicyReasons(rejected);
   elements.actionTotal.textContent = `${state.actions.length} action${state.actions.length === 1 ? '' : 's'}`;
 }
 
-function renderScanPattern(dailySpend) {
-  const pattern = dailySpend
-    ? [0.62, 0.74, 0.58, 0.88, 0.68, 0.79, 1].map(multiplier => Math.round(dailySpend * multiplier))
-    : [0, 0, 0, 0, 0, 0, 0];
-  const highest = Math.max(...pattern, 1);
-  elements.scanChart.innerHTML = pattern.map((value, index) => `
-    <span class="scan-bar${index === pattern.length - 1 ? ' current' : ''}" style="height: ${Math.max(10, Math.round((value / highest) * 100))}%" title="Scan ${index + 1}: ${money(value)}"></span>
-  `).join('');
+function renderPriorityAction(pendingActions) {
+  const action = pendingActions[0];
+  if (!action) {
+    elements.priorityAction.innerHTML = '<p class="eyebrow">Decision inbox</p><h2>No cloud action needs approval.</h2><p>Radar has evaluated the current signals and there is nothing waiting for a human decision.</p>';
+    return;
+  }
+  const canApprove = ['approver', 'admin'].includes(state.principal?.role);
+  const control = canApprove
+    ? `<button class="button button-primary" data-priority-select="${action.id}">Review decision <span aria-hidden="true">↗</span></button>`
+    : '<span class="permission-note">🔒 Switch to Approver to make this decision.</span>';
+  elements.priorityAction.innerHTML = `<div><p class="eyebrow">Decision inbox · action required</p><h2>${escapeHtml(action.resource_id)} could save ${money(action.projected_monthly_savings)}/month.</h2><p>${escapeHtml(action.policy_reason)}</p></div><div class="priority-action-controls"><span class="status-badge status-pending_approval">Awaiting approval</span>${control}</div>`;
+  document.querySelector('[data-priority-select]')?.addEventListener('click', () => selectAction(action.id));
+}
+
+function renderPolicyReasons(rejected) {
+  elements.deniedCount.textContent = `${rejected} rejected`;
+  const reasons = state.anomalies
+    .filter(anomaly => !anomaly.verdict_eligible)
+    .reduce((counts, anomaly) => {
+      const reason = anomaly.verdict_reason || 'No policy reason recorded.';
+      counts[reason] = (counts[reason] || 0) + 1;
+      return counts;
+    }, {});
+  const entries = Object.entries(reasons).sort((left, right) => right[1] - left[1]);
+  elements.policyReasons.innerHTML = entries.length
+    ? entries.slice(0, 3).map(([reason, count]) => `<div class="policy-reason"><span>${escapeHtml(reason)}</span><b>${count}</b></div>`).join('')
+    : '<p class="ai-empty">Every reviewed signal matched the current policy.</p>';
 }
 
 function renderSessionContext() {

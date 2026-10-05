@@ -58,45 +58,49 @@
         <div class="welcome-actions"><span class="live-chip"><i></i> Policy engine live</span><span class="role-chip" id="access-summary">Checking access…</span><button class="button button-secondary" id="refresh-button">Refresh view <span aria-hidden="true">↗</span></button></div>
       </section>
 
+      <section id="priority-action" class="priority-action" aria-live="polite">
+        <p class="eyebrow">Decision inbox</p><h2>Checking for actions that need you.</h2>
+      </section>
+
       <section class="metrics" aria-label="Cost remediation metrics">
         <article class="metric-card metric-card-coral">
           <div class="card-icon" aria-hidden="true">✓</div>
-          <p>Pending approvals</p>
+          <p>Needs your decision</p>
           <strong id="pending-count">—</strong>
-          <span>Actions awaiting a human decision</span>
+          <span id="pending-caption">Actions awaiting a human decision</span>
         </article>
         <article class="metric-card">
           <div class="card-icon card-icon-dark" aria-hidden="true">◌</div>
-          <p>Detected daily spend</p>
+          <p>Savings awaiting approval</p>
           <strong id="daily-spend-total">—</strong>
-          <span>Across the current anomaly set</span>
+          <span>Estimated monthly impact of pending actions</span>
         </article>
         <article class="metric-card metric-card-highlight">
           <div class="card-icon card-icon-light" aria-hidden="true">↗</div>
-          <p>Projected monthly savings</p>
+          <p>Signals reviewed</p>
           <strong id="savings-total">—</strong>
-          <span>From policy-matched actions</span>
+          <span id="reviewed-caption">Policy verdicts recorded for this tenant</span>
         </article>
       </section>
 
       <section class="insight-grid" aria-label="FinOps decision intelligence">
         <article class="panel decision-health">
           <div class="panel-heading compact-heading">
-            <div><p class="eyebrow">Decision health</p><h2>Policy coverage</h2></div>
-            <span class="quiet-action" aria-hidden="true">⋮</span>
+            <div><p class="eyebrow">Policy intelligence</p><h2>Why signals did not proceed</h2></div>
+            <span id="denied-count" class="count-pill">0 rejected</span>
           </div>
-          <div class="health-content">
-            <div class="coverage-ring" id="coverage-ring"><div><strong id="coverage-rate">—</strong><span>eligible</span></div></div>
-            <div class="health-copy"><strong id="coverage-summary">Evaluating signals</strong><p>Only policy-matched, non-production resources enter the approval queue.</p><span id="coverage-count" class="count-pill">0 evaluated</span></div>
-          </div>
+          <div id="policy-reasons" class="policy-reasons"><p class="ai-empty">Loading policy outcomes…</p></div>
         </article>
         <article class="panel scan-pattern">
           <div class="panel-heading compact-heading">
-            <div><p class="eyebrow">Signal pattern</p><h2>Daily spend under review</h2></div>
+            <div><p class="eyebrow">Scope under review</p><h2>Cost signal context</h2></div>
             <span class="trend-chip" id="scan-total">—</span>
           </div>
-          <div class="bar-chart" id="scan-chart" aria-label="Recent FinOps scan pattern"></div>
-          <div class="chart-caption"><span>Earlier scans</span><span>Current scan</span></div>
+          <div class="scope-metrics">
+            <div><span>Current daily spend</span><strong id="reviewed-daily">—</strong></div>
+            <div><span>Expected daily baseline</span><strong id="expected-daily">—</strong></div>
+            <div><span>Potential daily excess</span><strong id="excess-daily">—</strong></div>
+          </div>
         </article>
         <article class="panel operating-context">
           <p class="eyebrow">Control context</p>
