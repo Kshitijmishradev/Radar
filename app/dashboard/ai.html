@@ -60,6 +60,18 @@
           <article><span>Premium model share</span><strong id="premium-model-share">—</strong><small>Spend on models with approved fallbacks</small></article>
         </section>
 
+        <section class="ai-decision-strip" aria-label="AI policy decision metrics">
+          <article><span>Policy decisions</span><strong id="policy-decision-total">—</strong><small id="policy-decision-breakdown">Allow · Warn · Block</small></article>
+          <article><span>Blocked request exposure</span><strong id="blocked-exposure">—</strong><small>Estimated spend stopped by guardrails</small></article>
+          <article><span>Fallbacks accepted</span><strong id="fallback-accepted">—</strong><small>Explicit lower-cost routes chosen</small></article>
+          <article><span>Fallback savings</span><strong id="fallback-savings">—</strong><small>Estimated savings from accepted routes</small></article>
+        </section>
+
+        <section class="panel policy-ledger" aria-labelledby="policy-ledger-heading">
+          <div class="panel-heading"><div><p class="eyebrow">Decision history</p><h2 id="policy-ledger-heading">Recent AI policy decisions</h2></div><span id="policy-ledger-count" class="count-pill">0 decisions</span></div>
+          <div id="policy-decision-list" class="policy-decision-list"><p class="ai-empty">No policy checks recorded yet.</p></div>
+        </section>
+
         <section class="ai-grid">
           <section class="panel cost-surface" aria-labelledby="model-heading">
             <div class="panel-heading compact-heading"><div><p class="eyebrow">Cost-to-serve</p><h2 id="model-heading">Spend by model</h2></div><span class="trend-chip">Live ledger</span></div>

@@ -265,7 +265,9 @@ async def ai_preflight(request: AIUsageRequest, principal: Principal = Depends(c
     if principal.tenant_id != request.tenant_id:
         raise HTTPException(status_code=403, detail="You cannot estimate usage for another tenant.")
     try:
-        result = ai_cost_service.preflight(request.usage_input(), allow_fallback=request.allow_fallback)
+        usage = request.usage_input()
+        result = ai_cost_service.preflight(usage, allow_fallback=request.allow_fallback)
+        result["policy_decision"] = ai_cost_service.record_policy_decision(usage, result)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     if result["decision"] != "ALLOW":

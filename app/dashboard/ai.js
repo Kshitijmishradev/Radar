@@ -35,6 +35,7 @@ const elements = {
   costToServe: document.querySelector('#cost-to-serve'), costBreakdown: document.querySelector('#cost-breakdown'),
   budgetHealth: document.querySelector('#budget-health'), budgetCaption: document.querySelector('#budget-caption'),
   averageRequestCost: document.querySelector('#average-request-cost'), costPerThousand: document.querySelector('#cost-per-thousand'), cacheEfficiency: document.querySelector('#cache-efficiency'), premiumModelShare: document.querySelector('#premium-model-share'),
+  policyDecisionTotal: document.querySelector('#policy-decision-total'), policyDecisionBreakdown: document.querySelector('#policy-decision-breakdown'), blockedExposure: document.querySelector('#blocked-exposure'), fallbackAccepted: document.querySelector('#fallback-accepted'), fallbackSavings: document.querySelector('#fallback-savings'), policyLedgerCount: document.querySelector('#policy-ledger-count'), policyDecisionList: document.querySelector('#policy-decision-list'),
   modelList: document.querySelector('#model-list'), budgetList: document.querySelector('#budget-list'), customerList: document.querySelector('#customer-list'),
   usageTable: document.querySelector('#usage-table'), usageCount: document.querySelector('#usage-count'), preflight: document.querySelector('#run-preflight'),
   preflightResult: document.querySelector('#preflight-result'), ollamaTest: document.querySelector('#run-ollama-test'), ollamaResult: document.querySelector('#ollama-result'), rentalScenario: document.querySelector('#run-rental-scenario'), rentalResult: document.querySelector('#rental-result'), status: document.querySelector('#connection-status'), toast: document.querySelector('#toast'),
@@ -54,6 +55,21 @@ function renderAIAccess() { const canOperate = ['operator', 'admin'].includes(st
 function selectPreflightScenario(name) { state.preflightScenario = name; const scenario = PREFLIGHT_SCENARIOS[name]; elements.scenarioHint.textContent = scenario.hint; document.querySelectorAll('[data-preflight-scenario]').forEach(button => button.classList.toggle('active', button.dataset.preflightScenario === name)); }
 
 function renderList(target, items, label) { if (!items.length) { target.innerHTML = `<p class="ai-empty">No ${label} recorded yet.</p>`; return; } const max = Math.max(...items.map(item => Number(item.cost)), 1); target.innerHTML = items.slice(0, 4).map(item => `<div class="rank-row"><div><strong>${escapeHtml(item.name)}</strong><span><i style="width:${Math.max(5, Number(item.cost) / max * 100)}%"></i></span></div><b>${money(item.cost)}</b></div>`).join(''); }
+function renderPolicyDecisions(summary) {
+  const counts = summary.policy_summary.by_decision;
+  elements.policyDecisionTotal.textContent = summary.policy_summary.total_decisions;
+  elements.policyDecisionBreakdown.textContent = `Allow ${counts.ALLOW || 0} · Warn ${counts.WARN || 0} · Block ${counts.BLOCK || 0}`;
+  elements.blockedExposure.textContent = money(summary.policy_summary.blocked_request_exposure);
+  elements.fallbackAccepted.textContent = summary.policy_summary.fallback_accepted_count;
+  elements.fallbackSavings.textContent = money(summary.policy_summary.fallback_savings);
+  const decisions = summary.policy_summary.recent;
+  elements.policyLedgerCount.textContent = `${summary.policy_summary.total_decisions} decision${summary.policy_summary.total_decisions === 1 ? '' : 's'}`;
+  elements.policyDecisionList.innerHTML = decisions.length ? decisions.map(item => {
+    const route = item.fallback_accepted ? `${item.requested_model} → ${item.effective_model}` : item.requested_model;
+    const fallback = item.fallback_accepted ? ' · fallback accepted' : item.fallback_offered ? ' · fallback offered' : '';
+    return `<div class="policy-decision-row"><span class="decision-badge decision-${String(item.decision).toLowerCase()}">${escapeHtml(item.decision)}</span><div><strong>${escapeHtml(item.app)} · ${escapeHtml(route)}</strong><small>${escapeHtml(item.requested_provider)} · estimated ${money(item.estimated_cost)}${fallback}</small></div><b>${money(item.projected_month_spend)}</b></div>`;
+  }).join('') : '<p class="ai-empty">No policy checks recorded yet.</p>';
+}
 function render() {
   const overview = state.overview;
   elements.totalCost.textContent = money(overview.total_cost);
@@ -67,6 +83,7 @@ function render() {
   elements.costPerThousand.textContent = money(overview.cost_per_thousand_tokens);
   elements.cacheEfficiency.textContent = `${overview.cache_efficiency_percent}%`;
   elements.premiumModelShare.textContent = `${overview.premium_model_spend_percent}%`;
+  renderPolicyDecisions(overview);
   renderList(elements.modelList, overview.by_model, 'model costs'); renderList(elements.customerList, overview.by_customer, 'customer costs');
   elements.budgetList.innerHTML = overview.budgets.length ? overview.budgets.map(budget => `<div class="budget-row"><div><strong>${escapeHtml(budget.app)}</strong><span>${money(budget.month_to_date_spend)} of ${money(budget.monthly_limit)}</span></div><b>${budget.percent_used}%</b><i><em style="width:${Math.min(100, Number(budget.percent_used))}%"></em></i></div>`).join('') : '<p class="ai-empty">No app budgets configured.</p>';
   elements.usageCount.textContent = `${state.usage.length} request${state.usage.length === 1 ? '' : 's'}`;
@@ -92,6 +109,7 @@ async function preflight(allowFallback = false) {
     elements.preflightResult.className = `preflight-result decision-${result.decision.toLowerCase()}`;
     elements.preflightResult.innerHTML = `<strong>${escapeHtml(scenario.label)} · ${result.decision} · ${result.routed_to_fallback ? `routed to ${escapeHtml(result.effective_model)}` : result.permitted ? 'request may proceed' : 'request blocked'}</strong><span>${escapeHtml(result.reason)}</span><small>Estimated request cost ${money(result.estimate.total_cost)} · projected app spend ${money(result.projected_month_spend)} · app budget ${money(result.budget?.monthly_limit)}</small>${routeButton}`;
     document.querySelector('#use-fallback')?.addEventListener('click', () => preflight(true));
+    await load();
   } catch (error) { toast(error.message); } finally { elements.preflight.disabled = false; }
 }
 async function runOllamaTest() { if (!state.principal) return; elements.ollamaTest.disabled = true; elements.ollamaResult.className = 'ollama-empty'; elements.ollamaResult.textContent = 'Running local model…'; try { const result = await request('/v1/ai/ollama/generate', { method: 'POST', body: JSON.stringify({ tenant_id: state.principal.tenant_id, app: 'support-assistant', customer: 'acme-corp', end_user: 'jane@acme.com', model: 'llama3.2:3b', prompt: 'Reply with exactly three short words about responsible AI cost control.', max_tokens: 30 }) }); elements.ollamaResult.className = 'ollama-result'; elements.ollamaResult.innerHTML = `<strong>Recorded real Ollama telemetry</strong><span>${escapeHtml(result.response)}</span><small>${result.usage.input_tokens} input · ${result.usage.output_tokens} output tokens · ${result.telemetry.total_duration_seconds}s · ${money(result.usage.total_cost)} runtime cost</small>`; await load(); } catch (error) { elements.ollamaResult.className = 'ollama-error'; elements.ollamaResult.textContent = error.message; } finally { elements.ollamaTest.disabled = false; } }

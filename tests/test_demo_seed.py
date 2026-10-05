@@ -24,3 +24,4 @@ class DemoSeedTests(unittest.TestCase):
             overview = AICostService(repository).overview("demo-video")
             self.assertEqual(overview["request_count"], 5)
             self.assertEqual(len(overview["budgets"]), 2)
+            self.assertEqual(overview["policy_summary"]["total_decisions"], 4)

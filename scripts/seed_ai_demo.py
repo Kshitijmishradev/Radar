@@ -41,9 +41,19 @@ def main() -> None:
     ]
     for event in events:
         service.record_usage(event)
+    policy_cases = [
+        (usage("ai-policy-001", app="claims-copilot", provider="openai", model="gpt-4o-mini", input_tokens=120_000, output_tokens=18_000, cached_input_tokens=20_000, compute_cost=0.03, data_cost=0.01), False),
+        (usage("ai-policy-002", provider="openai", model="gpt-4o-mini", input_tokens=400_000, output_tokens=50_000, cached_input_tokens=80_000, compute_cost=0.10, data_cost=0.03), False),
+        (usage("ai-policy-003", provider="openai", model="gpt-4o", input_tokens=900_000, output_tokens=140_000, cached_input_tokens=250_000, compute_cost=1.20, data_cost=0.35), False),
+        (usage("ai-policy-004", provider="openai", model="gpt-4o", input_tokens=900_000, output_tokens=140_000, cached_input_tokens=250_000, compute_cost=1.20, data_cost=0.35), True),
+    ]
+    for policy_usage, allow_fallback in policy_cases:
+        result = service.preflight(policy_usage, allow_fallback=allow_fallback)
+        service.record_policy_decision(policy_usage, result)
     overview = service.overview(TENANT)
     print(f"Loaded {overview['request_count']} application-AI usage events for tenant '{TENANT}'.")
     print(f"Attributed cost-to-serve: ${overview['total_cost']:,.2f} across tokens, compute, and data.")
+    print(f"Loaded {overview['policy_summary']['total_decisions']} AI policy decisions for the dashboard.")
 
 
 if __name__ == "__main__":

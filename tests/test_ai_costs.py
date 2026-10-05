@@ -25,7 +25,7 @@ class AICostServiceTests(unittest.TestCase):
         self.assertEqual(estimate["total_cost"], 1.935)
 
     def test_preflight_blocks_when_projected_spend_exceeds_app_budget(self) -> None:
-        self.service.set_budget("tenant-a", "support-assistant", monthly_limit=2)
+        self.service.set_budget("tenant-a", "support-assistant", monthly_limit=1)
         self.service.record_usage(usage())
         result = self.service.preflight(usage(request_id="request-2"))
         self.assertEqual(result["decision"], "BLOCK")
@@ -53,6 +53,17 @@ class AICostServiceTests(unittest.TestCase):
         replay = self.service.record_usage(usage())
         self.assertEqual(first["id"], replay["id"])
         self.assertEqual(len(self.service.list_usage("tenant-a")), 1)
+
+    def test_policy_decisions_are_auditable_and_idempotent(self) -> None:
+        self.service.set_budget("tenant-a", "support-assistant", monthly_limit=1)
+        result = self.service.preflight(usage())
+        first = self.service.record_policy_decision(usage(), result)
+        replay = self.service.record_policy_decision(usage(), result)
+        summary = self.service.policy_summary("tenant-a")
+        self.assertEqual(first["id"], replay["id"])
+        self.assertEqual(summary["total_decisions"], 1)
+        self.assertEqual(summary["by_decision"]["BLOCK"], 1)
+        self.assertGreater(summary["blocked_request_exposure"], 0)
 
     def test_blocked_frontier_model_can_route_to_an_approved_fallback(self) -> None:
         self.service.set_budget("tenant-a", "support-assistant", monthly_limit=4)

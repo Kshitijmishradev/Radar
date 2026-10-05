@@ -93,6 +93,28 @@ class AICostService:
                     created_at TEXT NOT NULL,
                     UNIQUE(tenant_id, request_id)
                 );
+                CREATE TABLE IF NOT EXISTS ai_policy_decisions (
+                    id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    app TEXT NOT NULL,
+                    customer_name TEXT NOT NULL,
+                    end_user TEXT NOT NULL,
+                    requested_provider TEXT NOT NULL,
+                    requested_model TEXT NOT NULL,
+                    effective_provider TEXT NOT NULL,
+                    effective_model TEXT NOT NULL,
+                    decision TEXT NOT NULL,
+                    permitted INTEGER NOT NULL,
+                    requested_estimated_cost REAL NOT NULL,
+                    estimated_cost REAL NOT NULL,
+                    projected_month_spend REAL NOT NULL,
+                    budget_limit REAL,
+                    fallback_offered INTEGER NOT NULL,
+                    fallback_accepted INTEGER NOT NULL,
+                    request_id TEXT,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(tenant_id, request_id)
+                );
                 """
             )
 
@@ -248,8 +270,48 @@ class AICostService:
             )
         return self.get_usage_event(event_id) or {}
 
+    def record_policy_decision(self, usage: AIUsageInput, result: dict[str, object]) -> dict[str, object]:
+        """Persist a preflight verdict so policy effectiveness can be audited and measured."""
+        if usage.request_id:
+            existing = self.repository._connection.execute(  # noqa: SLF001
+                "SELECT * FROM ai_policy_decisions WHERE tenant_id = ? AND request_id = ?",
+                (usage.tenant_id, usage.request_id),
+            ).fetchone()
+            if existing:
+                return dict(existing)
+        requested_estimate = self.estimate(usage)
+        estimate = result["estimate"]
+        budget = result.get("budget") or {}
+        recommended_fallback = result.get("recommended_fallback") or {}
+        effective_provider = str(result.get("effective_provider", usage.provider))
+        effective_model = str(result.get("effective_model", usage.model))
+        decision_id = str(uuid.uuid4())
+        with self.repository.transaction() as conn:
+            conn.execute(
+                """INSERT INTO ai_policy_decisions (
+                    id, tenant_id, app, customer_name, end_user, requested_provider, requested_model,
+                    effective_provider, effective_model, decision, permitted, requested_estimated_cost,
+                    estimated_cost, projected_month_spend, budget_limit, fallback_offered,
+                    fallback_accepted, request_id, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    decision_id, usage.tenant_id, usage.app, usage.customer, usage.end_user,
+                    usage.provider, usage.model, effective_provider, effective_model,
+                    result["decision"], bool(result["permitted"]), requested_estimate["total_cost"],
+                    estimate["total_cost"], result["projected_month_spend"], budget.get("monthly_limit"),
+                    bool(recommended_fallback), bool(result.get("routed_to_fallback")), usage.request_id, utc_now(),
+                ),
+            )
+        return self.get_policy_decision(decision_id) or {}
+
     def get_usage_event(self, event_id: str) -> dict[str, object] | None:
         row = self.repository._connection.execute("SELECT * FROM ai_usage_events WHERE id = ?", (event_id,)).fetchone()  # noqa: SLF001
+        return dict(row) if row else None
+
+    def get_policy_decision(self, decision_id: str) -> dict[str, object] | None:
+        row = self.repository._connection.execute(  # noqa: SLF001
+            "SELECT * FROM ai_policy_decisions WHERE id = ?", (decision_id,)
+        ).fetchone()
         return dict(row) if row else None
 
     def list_usage(self, tenant_id: str) -> list[dict[str, object]]:
@@ -257,6 +319,31 @@ class AICostService:
             "SELECT * FROM ai_usage_events WHERE tenant_id = ? ORDER BY created_at DESC", (tenant_id,)
         ).fetchall()
         return [dict(row) for row in rows]
+
+    def list_policy_decisions(self, tenant_id: str) -> list[dict[str, object]]:
+        rows = self.repository._connection.execute(  # noqa: SLF001
+            "SELECT * FROM ai_policy_decisions WHERE tenant_id = ? ORDER BY created_at DESC", (tenant_id,)
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def policy_summary(self, tenant_id: str) -> dict[str, object]:
+        rows = self.list_policy_decisions(tenant_id)
+        by_decision = {"ALLOW": 0, "WARN": 0, "BLOCK": 0}
+        for row in rows:
+            decision = str(row["decision"]).upper()
+            by_decision[decision] = by_decision.get(decision, 0) + 1
+        blocked_exposure = sum(float(row["requested_estimated_cost"]) for row in rows if row["decision"] == "BLOCK")
+        accepted = [row for row in rows if bool(row["fallback_accepted"])]
+        fallback_savings = sum(
+            max(float(row["requested_estimated_cost"]) - float(row["estimated_cost"]), 0)
+            for row in accepted
+        )
+        return {
+            "total_decisions": len(rows), "by_decision": by_decision,
+            "blocked_request_exposure": round(blocked_exposure, 6),
+            "fallback_accepted_count": len(accepted), "fallback_savings": round(fallback_savings, 6),
+            "recent": rows[:6],
+        }
 
     def overview(self, tenant_id: str) -> dict[str, object]:
         rows = self.list_usage(tenant_id)
@@ -300,7 +387,7 @@ class AICostService:
             "cache_efficiency_percent": round((cached_input_tokens / input_tokens) * 100, 1) if input_tokens else 0,
             "premium_model_spend_percent": round((premium_cost / total) * 100, 1) if total else 0,
             "by_app": self._rank(by_app), "by_model": self._rank(by_model), "by_customer": self._rank(by_customer),
-            "budgets": budgets,
+            "budgets": budgets, "policy_summary": self.policy_summary(tenant_id),
         }
 
     @staticmethod
@@ -311,3 +398,4 @@ class AICostService:
         with self.repository.transaction() as conn:
             conn.execute("DELETE FROM ai_usage_events WHERE tenant_id = ?", (tenant_id,))
             conn.execute("DELETE FROM ai_budgets WHERE tenant_id = ?", (tenant_id,))
+            conn.execute("DELETE FROM ai_policy_decisions WHERE tenant_id = ?", (tenant_id,))
