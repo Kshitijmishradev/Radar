@@ -1,55 +1,67 @@
 # Radar Remediation Engine
 
-Radar is a dashboard that helps a company understand, control, and reduce two fast-growing costs:
+**Radar is a decision-control dashboard for cloud and AI spend.** It turns a costly signal into an explainable, role-authorized decision instead of merely displaying another chart.
 
-1. **Cloud infrastructure** — for example, a server that is running but no one is using.
-2. **AI usage** — for example, an application making expensive model calls or renting a GPU to run its own model.
+It is a portfolio prototype inspired by FinOps (cloud financial operations). Radar finds unusual cloud cost and expensive AI usage, evaluates deterministic safety and budget policies, involves the right person where needed, and preserves the outcome as an audit trail.
 
-It is a portfolio prototype inspired by the FinOps (cloud financial operations) workflow: spot an unusual cost, check it against clear rules, ask the right person for approval, and keep a record of what happened.
+## Understand Radar in two minutes
 
-## Start here — no technical background required
+### The problem it solves
 
-Imagine a company notices that its cloud bill suddenly rises, or that its AI assistant is becoming expensive to run. Radar answers four practical questions:
+A company can lose money in two quiet ways: an unused cloud resource keeps running, or an AI feature makes many costly model calls. Teams need more than a spend report. They need to know **what changed, whether acting is safe, who is allowed to decide, and what happened afterward**.
 
-| Question | What Radar does |
-| --- | --- |
-| **What is costing us money?** | Shows unusual cloud spend and the cost of individual AI requests in one place. |
-| **Is it safe to act?** | Checks simple safety rules. For example, it will never propose automatically stopping a production system. |
-| **Who has to approve it?** | Sends a suggested action through an approval step rather than changing anything immediately. |
-| **Can we explain the decision later?** | Keeps a timestamped history of the alert, decision, approver, action, and rollback. |
+Radar gives them one decision flow:
 
-### What you can see in the dashboard
+```text
+Cost signal or AI request
+        ↓
+Policy evaluation with an explanation
+        ↓
+Role and tenant authorization
+        ↓
+Approval, block/warning, or explicit lower-cost option
+        ↓
+Durable record, live dashboard update, and audit history
+```
 
-- **Cloud Control (`/`)**: a cost anomaly is assessed against policy. A safe, non-production resource can be proposed for shutdown; production resources and unsafe cases are rejected with an explanation. An approved action can be simulated and then rolled back.
-- **Radar AI (`/ai`)**: each model request is attributed to an application, customer, and end user. The dashboard shows spend by model and customer, checks budgets *before* a request is made, and can offer an explicit lower-cost model option when a request would exceed budget.
-- **Self-hosted AI / GPU view**: when a company runs a model itself with Ollama, Radar records the real tokens and runtime. It can replay that measured work against a market GPU rental rate, making the cost of operating a model visible even when the model software itself is free.
+### What is working in this demo
 
-### Reset the recording-ready demo
+| Capability | What a viewer can see | Why it matters |
+| --- | --- | --- |
+| **Cloud Decision Inbox** | A large cloud-cost anomaly, expected savings, the safety-policy result, and an action awaiting review. Unsafe and production cases show their denial reasons. | A recommendation is explainable before anyone changes infrastructure. |
+| **Role-based decisions** | Named Viewer, Operator, Approver, and Admin demo personas. The screen shows allowed and locked actions. | Only authorized people can approve a money-affecting action; backend checks enforce the same rule. |
+| **AI budget guardrail** | Request-level spend by application/customer/model, budget health, efficiency metrics, and a decision history of `ALLOW`, `WARN`, and `BLOCK`. | Cost controls can happen before an expensive model request is made. |
+| **Explicit model fallback** | When a request exceeds budget, Radar can offer a cheaper model, then records whether the user accepted it and the estimated saving. | A lower-cost choice is visible and intentional—not a silent model downgrade. |
+| **Self-hosted AI cost replay** | Real Ollama token and runtime telemetry replayed against a named GPU rental rate. | “The model is free” does not hide the cost of running GPU capacity. |
 
-Before recording a demo, run the following command. It resets only the
-`demo-video` tenant, creates one cloud action ready for approval plus seven
-clear policy denials, and loads the AI spend/budget examples used by Radar AI.
+### How the product fits together
+
+```text
+Browser dashboard  ←── SSE live updates ──  FastAPI application
+                                              │
+Cloud anomaly ──→ policy + approval ──→ durable job ──→ worker ──→ cloud adapter
+                                              │
+AI client/sidecar ──→ preflight policy ──→ provider or Ollama ──→ usage telemetry
+                                              │
+                                      SQLite in this demo
+```
+
+The application keeps tenants separate, queues approved cloud work so an HTTP request does not perform it directly, and sends relevant dashboard events only to signed-in users of that tenant.
+
+### Try the recording-ready demo
 
 ```bash
 make demo
+make run
 ```
 
-Then sign in as **Alex Morgan (Operator)**, **Priya Sharma (Approver)**, or
-**Maya Chen (Admin)** to demonstrate the different decision rights.
+Open the dashboard, then sign in as **Alex Morgan (Operator)**, **Priya Sharma (Approver)**, or **Maya Chen (Admin)** to see the different decision rights. `make demo` resets only the `demo-video` tenant and creates one cloud decision awaiting approval, seven policy denials, five AI usage events, and four AI policy decisions.
 
-For a complete 4–5 minute walkthrough, use the [recording script](docs/DEMO_SCRIPT.md).
-The [interview notes](docs/INTERVIEW_NOTES.md) explain the backend tradeoffs and
-production boundaries in recruiter-friendly language.
+For the intended 4–5 minute walkthrough, use the [recording script](docs/DEMO_SCRIPT.md). The [interview notes](docs/INTERVIEW_NOTES.md) explain the backend choices in recruiter-friendly language. For deeper technical detail, see the [architecture notes](docs/ARCHITECTURE.md) and [deployment guide](docs/DEPLOYMENT.md).
 
-### The story this project demonstrates
+### Honest prototype boundary
 
-> A team receives a cost signal. Radar evaluates it using defined safety and budget rules. If action is appropriate, a human approves it. The system records the outcome and immediately updates the dashboard. For AI, the same idea happens before a costly model request is sent.
-
-### What this is—and what it is not
-
-This is a working local prototype designed to demonstrate backend engineering decisions: secure tenant separation, role-based controls, approval workflows, reliable background work, real-time dashboard updates, cost policy evaluation, and audit history.
-
-It does **not** connect to a real AWS account or rent a cloud GPU. Cloud changes are simulated so the demo is safe. The GPU-rental screen uses a named public market rate with real local model telemetry; it is a cost replay, not a benchmark of local hardware against that GPU.
+This is a working local prototype—not a live cloud-management service. Cloud actions are simulated, demo authentication is local, SQLite and the event broker are single-process development components, and the GPU view is a cost replay rather than a hardware-performance benchmark. The [production roadmap](PROJECT_STATUS.md) describes the planned replacements: company SSO, PostgreSQL, Redis or a managed event service, managed queue workers, least-privilege cloud roles, and Terraform-defined infrastructure.
 
 ## Safety model
 
