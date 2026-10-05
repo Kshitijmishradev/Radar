@@ -75,9 +75,15 @@
           </section>
           <aside class="panel preflight-panel">
             <p class="eyebrow">Budget gate simulator</p><h2>Check before you call the model.</h2>
-            <p>Simulates an SDK preflight with the configured support-assistant budget.</p>
+            <p>Pick a request shape to show how the same policy returns an allow, warning, or block decision.</p>
+            <div class="preflight-scenarios" role="group" aria-label="Preflight demonstration scenarios">
+              <button class="scenario-button active" data-preflight-scenario="allow" type="button">Safe request</button>
+              <button class="scenario-button" data-preflight-scenario="warn" type="button">Near budget</button>
+              <button class="scenario-button" data-preflight-scenario="block" type="button">Over budget</button>
+            </div>
+            <p id="preflight-scenario-hint" class="scenario-hint">Claims Copilot using GPT-4o mini is safely below its monthly budget.</p>
             <span id="ai-access-note" class="permission-note">Checking role permissions…</span>
-            <button id="run-preflight" class="button button-primary">Run preflight <span aria-hidden="true">↗</span></button>
+            <button id="run-preflight" class="button button-primary">Evaluate selected request <span aria-hidden="true">↗</span></button>
             <div id="preflight-result" class="preflight-empty">No request checked yet.</div>
             <div class="ollama-divider"></div>
             <p class="eyebrow">Live local validation</p>

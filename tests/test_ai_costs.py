@@ -31,6 +31,13 @@ class AICostServiceTests(unittest.TestCase):
         self.assertEqual(result["decision"], "BLOCK")
         self.assertFalse(result["permitted"])
 
+    def test_preflight_warns_when_projected_spend_crosses_warning_threshold(self) -> None:
+        self.service.set_budget("tenant-a", "support-assistant", monthly_limit=5, warning_percent=70)
+        self.service.record_usage(usage())
+        result = self.service.preflight(usage(request_id="request-2"))
+        self.assertEqual(result["decision"], "WARN")
+        self.assertTrue(result["permitted"])
+
     def test_overview_attributes_cost_to_model_customer_and_app(self) -> None:
         self.service.record_usage(usage())
         overview = self.service.overview("tenant-a")
